@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Probar el modelo de conteo</title>
+<style>
+  :root {
+    --bg: #14201c; --surface: #1c2b26; --surface-2: #24362f; --border: #345048;
+    --text: #eef3f0; --text-dim: #9db3ab; --accent: #4fd1a5; --accent-dim: #2e6b57;
+    --warn: #e0a94f; --danger: #e0704f;
+    font-family: "Segoe UI", Roboto, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); padding: 16px; max-width: 640px; margin-inline: auto; line-height: 1.5; }
+  h1 { font-size: 20px; font-weight: 600; margin: 4px 0 2px; }
+  .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 10px; }
+  .banner { background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; font-size: 12px; margin-bottom: 12px; }
+  .banner.warn { background: #4a3a1a; border-color: var(--warn); color: #f5dfae; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  input[type=file] { width: 100%; padding: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
+  button { background: var(--accent); color: #0b1512; border: none; padding: 11px 16px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 12px; }
+  button.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  button.round-btn { width: 54px; height: 54px; border-radius: 50%; font-size: 22px; margin: 0; }
+  .photo-wrap { position: relative; margin-top: 10px; }
+  .photo-preview { width: 100%; border-radius: 8px; max-height: 320px; object-fit: contain; background: #000; display: block; }
+  canvas.overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  .status { font-size: 13px; color: var(--warn); margin-top: 8px; }
+  .status.error { color: var(--danger); }
+  .status.ok { color: var(--accent); }
+  .hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+  .count-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 10px; }
+  .count-big { font-size: 48px; font-weight: 700; color: var(--accent); font-family: monospace; min-width: 80px; text-align: center; }
+  .label-center { text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  th, td { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-dim); font-weight: 500; }
+  .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 20px 0; }
+  .result-box { background: var(--surface-2); border: 1px solid var(--accent-dim); border-radius: 8px; padding: 14px; margin-top: 14px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Probar el modelo de conteo</h1>
+<div class="sub">Solo esto: subir una foto, ver qué cuenta el modelo, y comparar contra tu propio conteo.</div>
+<div class="banner">Guarda este archivo en tu celular y ábrelo con internet la primera vez. Después, prueba en modo avión para confirmar si sigue funcionando sin señal.</div>
+<div class="banner warn" id="modelBanner">Cargando el modelo de detección…</div>
+
+<div class="card">
+  <label class="hint" style="display:block; margin-bottom:6px">Foto de prueba</label>
+  <input type="file" id="photo" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+  <div class="photo-wrap">
+    <img id="preview" class="photo-preview" style="display:none">
+    <canvas id="overlay" class="overlay" style="display:none"></canvas>
+  </div>
+  <div class="status" id="detectStatus"></div>
+
+  <div class="label-center">Conteo automático del modelo</div>
+  <div style="text-align:center"><div class="count-big" id="autoCount">–</div></div>
+
+  <div class="label-center">Tu conteo manual (cuenta real, tú decides)</div>
+  <div class="count-row" id="manualRow" style="display:none">
+    <button class="secondary round-btn" onclick="adjust(-1)">−</button>
+    <div class="count-big" id="manualCount">0</div>
+    <button class="secondary round-btn" onclick="adjust(1)">+</button>
+  </div>
+
+  <button id="saveBtn" onclick="saveComparison()" style="display:none">Guardar comparación</button>
+  <div class="status" id="saveStatus"></div>
+</div>
+
+<div class="card">
+  <h2 style="font-size:15px; margin:0 0 10px; color:var(--accent); text-transform:uppercase; letter-spacing:.04em">Historial de pruebas</h2>
+  <div id="summary"></div>
+  <table>
+    <thead><tr><th>Hora</th><th>Automático</th><th>Manual</th><th>Diferencia</th></tr></thead>
+    <tbody id="logBody"></tbody>
+  </table>
+  <div class="empty" id="logEmpty">Sin pruebas todavía.</div>
+  <button class="secondary" onclick="resetAll()">Borrar historial</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+<script>
+let model = null;
+let autoValue = 0;
+let manualValue = 0;
+let tests = [];
+
+function loadKey(key) {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : []; }
+  catch (e) { return []; }
+}
+function saveKey(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+}
+tests = loadKey('tests');
+
+async function loadModel() {
+  const banner = document.getElementById('modelBanner');
+  try {
+    model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+    banner.textContent = 'Modelo listo. Prueba ahora en modo avión para confirmar que funciona sin señal.';
+    banner.classList.remove('warn');
+  } catch (e) {
+    banner.textContent = 'No se pudo cargar el modelo (revisa conexión). Intenta de nuevo abriendo la página con internet.';
+  }
+}
+loadModel();
+
+function handlePhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = document.getElementById('preview');
+    img.src = reader.result;
+    img.style.display = 'block';
+    img.onload = () => runDetection(img);
+  };
+  reader.readAsDataURL(file);
+}
+
+async function runDetection(imgEl) {
+  const statusEl = document.getElementById('detectStatus');
+  const canvas = document.getElementById('overlay');
+  document.getElementById('manualRow').style.display = 'flex';
+  document.getElementById('saveBtn').style.display = 'block';
+  manualValue = 0;
+  document.getElementById('manualCount').textContent = 0;
+
+  if (!model) {
+    statusEl.textContent = 'Modelo no disponible todavía.';
+    statusEl.className = 'status error';
+    autoValue = 0;
+    document.getElementById('autoCount').textContent = '–';
+    return;
+  }
+  statusEl.textContent = 'Detectando…';
+  statusEl.className = 'status';
+  try {
+    const predictions = await model.detect(imgEl, 200, 0.35);
+    const people = predictions.filter(p => p.class === 'person');
+    canvas.width = imgEl.clientWidth; canvas.height = imgEl.clientHeight;
+    canvas.style.display = 'block';
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const scaleX = imgEl.clientWidth / imgEl.naturalWidth;
+    const scaleY = imgEl.clientHeight / imgEl.naturalHeight;
+    ctx.strokeStyle = '#4fd1a5'; ctx.lineWidth = 2;
+    people.forEach(p => { const [x,y,w,h] = p.bbox; ctx.strokeRect(x*scaleX, y*scaleY, w*scaleX, h*scaleY); });
+    autoValue = people.length;
+    document.getElementById('autoCount').textContent = autoValue;
+    statusEl.textContent = people.length + ' detectadas. Ahora cuenta tú mismo abajo.';
+    statusEl.className = 'status ok';
+  } catch (e) {
+    statusEl.textContent = 'Error al detectar: ' + e.message;
+    statusEl.className = 'status error';
+  }
+}
+
+function adjust(delta) {
+  manualValue = Math.max(0, manualValue + delta);
+  document.getElementById('manualCount').textContent = manualValue;
+}
+
+function saveComparison() {
+  const diff = manualValue - autoValue;
+  const diffPct = manualValue > 0 ? (diff / manualValue * 100) : 0;
+  tests.push({ timestamp: new Date().toISOString(), auto: autoValue, manual: manualValue, diff, diffPct });
+  saveKey('tests', tests);
+  document.getElementById('saveStatus').textContent = 'Comparación guardada.';
+  document.getElementById('saveStatus').className = 'status ok';
+  renderLog();
+  document.getElementById('preview').style.display = 'none';
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('photo').value = '';
+  document.getElementById('manualRow').style.display = 'none';
+  document.getElementById('saveBtn').style.display = 'none';
+  document.getElementById('autoCount').textContent = '–';
+}
+
+function renderLog() {
+  const summaryEl = document.getElementById('summary');
+  const body = document.getElementById('logBody');
+  const empty = document.getElementById('logEmpty');
+  if (tests.length === 0) { summaryEl.innerHTML=''; body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  const avgDiffPct = tests.reduce((a,t)=>a+t.diffPct,0) / tests.length;
+  const direction = avgDiffPct > 0 ? 'subestima' : 'sobreestima';
+  summaryEl.innerHTML = `<div class="result-box">Con ${tests.length} prueba(s), el modelo ${direction} en promedio un ${Math.abs(avgDiffPct).toFixed(0)}% frente a tu conteo manual.</div>`;
+  const sorted = [...tests].sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
+  body.innerHTML = sorted.map(t => `
+    <tr>
+      <td>${new Date(t.timestamp).toLocaleString('es-CO', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'})}</td>
+      <td>${t.auto}</td>
+      <td>${t.manual}</td>
+      <td>${t.diff > 0 ? '+' : ''}${t.diff} (${t.diffPct.toFixed(0)}%)</td>
+    </tr>
+  `).join('');
+}
+function resetAll() {
+  if (!confirm('¿Borrar el historial de pruebas?')) return;
+  tests = []; saveKey('tests', tests); renderLog();
+}
+renderLog();
+</script>
+</body>
+</html>
