@@ -81,12 +81,16 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 <script>
 let model = null;
 let autoValue = 0;
 let manualValue = 0;
 let tests = [];
+const YOLO_MODEL_URL = './yolov8n_best_web_model/model.json';
+const YOLO_IMAGE_SIZE = 640;
+const SCORE_THRESHOLD = 0.25;
+const NMS_IOU_THRESHOLD = 0.45;
+const MAX_DETECTIONS = 300;
 
 function loadKey(key) {
   try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : []; }
@@ -100,10 +104,14 @@ tests = loadKey('tests');
 async function loadModel() {
   const banner = document.getElementById('modelBanner');
   try {
-    model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+    model = await tf.loadGraphModel(YOLO_MODEL_URL);
     banner.textContent = 'Modelo listo. Prueba ahora en modo avión para confirmar que funciona sin señal.';
     banner.classList.remove('warn');
+    banner.textContent = 'Modelo YOLO CrowdHuman listo. Ya puedes probar fotos contra tu conteo manual.';
   } catch (e) {
+    setTimeout(() => {
+      banner.textContent = 'No se pudo cargar ./yolov8n_best_web_model/model.json. Primero exporta el .pt a TensorFlow.js y deja esa carpeta junto a este HTML.';
+    }, 0);
     banner.textContent = 'No se pudo cargar el modelo (revisa conexión). Intenta de nuevo abriendo la página con internet.';
   }
 }
@@ -140,8 +148,7 @@ async function runDetection(imgEl) {
   statusEl.textContent = 'Detectando…';
   statusEl.className = 'status';
   try {
-    const predictions = await model.detect(imgEl, 200, 0.35);
-    const people = predictions.filter(p => p.class === 'person');
+    const people = await detectPeopleYolo(imgEl);
     canvas.width = imgEl.clientWidth; canvas.height = imgEl.clientHeight;
     canvas.style.display = 'block';
     const ctx = canvas.getContext('2d');
@@ -158,6 +165,106 @@ async function runDetection(imgEl) {
     statusEl.textContent = 'Error al detectar: ' + e.message;
     statusEl.className = 'status error';
   }
+}
+
+async function detectPeopleYolo(imgEl) {
+  const input = tf.tidy(() => tf.browser.fromPixels(imgEl)
+    .resizeBilinear([YOLO_IMAGE_SIZE, YOLO_IMAGE_SIZE])
+    .toFloat()
+    .div(255)
+    .expandDims(0));
+
+  let output;
+  try {
+    output = model.execute(input);
+    const outputTensor = pickOutputTensor(output);
+    return await decodeYoloOutput(outputTensor, imgEl.naturalWidth, imgEl.naturalHeight);
+  } finally {
+    if (output) disposeOutput(output);
+    input.dispose();
+  }
+}
+
+function pickOutputTensor(output) {
+  if (output instanceof tf.Tensor) return output;
+  if (Array.isArray(output)) return output[0];
+  const tensors = Object.values(output || {});
+  if (tensors.length === 0) throw new Error('El modelo no devolvio tensores.');
+  return tensors[0];
+}
+
+function disposeOutput(output) {
+  if (output instanceof tf.Tensor) {
+    output.dispose();
+  } else if (Array.isArray(output)) {
+    output.forEach(t => t.dispose());
+  } else if (output) {
+    Object.values(output).forEach(t => t.dispose && t.dispose());
+  }
+}
+
+async function decodeYoloOutput(outputTensor, imageWidth, imageHeight) {
+  const squeezed = outputTensor.squeeze();
+  const shape = squeezed.shape;
+  const data = await squeezed.data();
+  const rows = [];
+
+  if (shape.length !== 2) {
+    squeezed.dispose();
+    throw new Error('Salida YOLO inesperada: [' + outputTensor.shape.join(', ') + ']');
+  }
+
+  const attrsFirst = shape[0] <= 10;
+  const attrs = attrsFirst ? shape[0] : shape[1];
+  const count = attrsFirst ? shape[1] : shape[0];
+
+  if (attrs < 5) {
+    squeezed.dispose();
+    throw new Error('Salida YOLO sin confianza: [' + outputTensor.shape.join(', ') + ']');
+  }
+
+  for (let i = 0; i < count; i++) {
+    const xc = attrsFirst ? data[i] : data[i * attrs];
+    const yc = attrsFirst ? data[count + i] : data[i * attrs + 1];
+    const w = attrsFirst ? data[2 * count + i] : data[i * attrs + 2];
+    const h = attrsFirst ? data[3 * count + i] : data[i * attrs + 3];
+    const score = attrsFirst ? data[4 * count + i] : data[i * attrs + 4];
+    if (score < SCORE_THRESHOLD) continue;
+
+    const x = (xc - w / 2) * imageWidth / YOLO_IMAGE_SIZE;
+    const y = (yc - h / 2) * imageHeight / YOLO_IMAGE_SIZE;
+    const boxW = w * imageWidth / YOLO_IMAGE_SIZE;
+    const boxH = h * imageHeight / YOLO_IMAGE_SIZE;
+    const x1 = clamp(x, 0, imageWidth);
+    const y1 = clamp(y, 0, imageHeight);
+    const x2 = clamp(x + boxW, 0, imageWidth);
+    const y2 = clamp(y + boxH, 0, imageHeight);
+    if (x2 <= x1 || y2 <= y1) continue;
+    rows.push({ bbox: [x1, y1, x2 - x1, y2 - y1], box: [y1, x1, y2, x2], score });
+  }
+  squeezed.dispose();
+
+  if (rows.length === 0) return [];
+
+  const boxesTensor = tf.tensor2d(rows.map(r => r.box));
+  const scoresTensor = tf.tensor1d(rows.map(r => r.score));
+  const selected = await tf.image.nonMaxSuppressionAsync(
+    boxesTensor,
+    scoresTensor,
+    MAX_DETECTIONS,
+    NMS_IOU_THRESHOLD,
+    SCORE_THRESHOLD
+  );
+  const selectedIdx = Array.from(await selected.data());
+  boxesTensor.dispose();
+  scoresTensor.dispose();
+  selected.dispose();
+
+  return selectedIdx.map(i => rows[i]);
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function adjust(delta) {
