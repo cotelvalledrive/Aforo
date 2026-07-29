@@ -1,0 +1,9 @@
+{
+  "name": "Aforo",
+  "short_name": "Aforo",
+  "start_url": "./app_aforo_yolo.html",
+  "display": "standalone",
+  "background_color": "#14201c",
+  "theme_color": "#14201c",
+  "description": "Herramienta de campo para estimar aforo con muestreo fotografico."
+}
