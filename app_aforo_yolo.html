@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#14201c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Aforo">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>Aforo — herramienta de campo</title>
+<style>
+  :root {
+    --bg: #14201c; --surface: #1c2b26; --surface-2: #24362f; --border: #345048;
+    --text: #eef3f0; --text-dim: #9db3ab; --accent: #4fd1a5; --accent-dim: #2e6b57;
+    --warn: #e0a94f; --danger: #e0704f;
+    font-family: "Segoe UI", Roboto, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); padding: 16px; max-width: 640px; margin-inline: auto; line-height: 1.5; }
+  h1 { font-size: 20px; font-weight: 600; margin: 4px 0 2px; }
+  .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 10px; }
+  .banner { background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; font-size: 12px; margin-bottom: 12px; }
+  .banner.warn { background: #4a3a1a; border-color: var(--warn); color: #f5dfae; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tab { flex: 1; padding: 10px 6px; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-dim); }
+  .tab.active { background: var(--accent-dim); color: var(--text); border-color: var(--accent); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  label { display: block; font-size: 12px; color: var(--text-dim); margin: 10px 0 4px; }
+  input[type=text], input[type=number], select {
+    width: 100%; padding: 10px; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 14px;
+  }
+  button { background: var(--accent); color: #0b1512; border: none; padding: 11px 16px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 12px; }
+  button.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  button.small { padding: 6px 10px; font-size: 12px; margin-top: 0; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .zone-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .zone-row:last-child { border-bottom: none; }
+  .zone-name { font-weight: 600; }
+  .zone-meta { color: var(--text-dim); font-size: 12px; }
+  .photo-wrap { position: relative; margin-top: 10px; }
+  .photo-preview { width: 100%; border-radius: 8px; max-height: 300px; object-fit: contain; background: #000; display: block; }
+  canvas.overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  .result-box { background: var(--surface-2); border: 1px solid var(--accent-dim); border-radius: 8px; padding: 14px; margin-top: 14px; font-size: 13px; }
+  .result-box .big { font-size: 26px; font-weight: 700; color: var(--accent); font-family: monospace; }
+  .status { font-size: 13px; color: var(--warn); margin-top: 8px; }
+  .status.error { color: var(--danger); }
+  .status.ok { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-dim); font-weight: 500; }
+  .totalline { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .totalline:last-child { border: none; font-weight: 700; color: var(--accent); font-family: monospace; }
+  .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 20px 0; }
+  .hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+  .count-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
+  .count-big { font-size: 48px; font-weight: 700; color: var(--accent); font-family: monospace; min-width: 80px; text-align: center; }
+  .round-btn { width: 54px; height: 54px; border-radius: 50%; font-size: 22px; margin: 0; }
+  .sample-chip { display: inline-block; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 4px 10px; font-size: 12px; margin: 3px 4px 0 0; }
+  .sample-chip button { background: none; border: none; color: var(--danger); font-size: 12px; padding: 0 0 0 6px; margin: 0; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<h1>Aforo — herramienta de campo</h1>
+<div class="sub">Muestreo por unidades, detección automática y curva del día.</div>
+<div class="banner">Los datos se guardan en este mismo celular (sin internet). Descarga este archivo y ábrelo directo desde tu navegador antes de ir al evento.</div>
+<div class="banner warn" id="modelBanner">Cargando detector automático de personas… (necesita internet solo esta primera vez; pruébalo en modo avión antes del evento para confirmar que quedó guardado en el celular)</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="zonas">Zonas</div>
+  <div class="tab" data-tab="ronda">Nueva ronda</div>
+  <div class="tab" data-tab="historial">Historial</div>
+  <div class="tab" data-tab="encuestas">Encuestas</div>
+  <div class="tab" data-tab="resumen">Resumen</div>
+</div>
+
+<!-- ZONAS -->
+<div class="panel active" id="panel-zonas">
+  <div class="card">
+    <h2>Agregar zona</h2>
+    <label>Nombre de la zona</label>
+    <input type="text" id="zoneName" placeholder="Ej. Tarima principal">
+
+    <label>¿Cómo vas a definir el tamaño de la unidad de muestra?</label>
+    <select id="zoneMethod" onchange="toggleZoneMethod()">
+      <option value="objetos">Contando objetos repetidos (carpas, postes)</option>
+      <option value="pasos">Midiendo en pasos (zonas abiertas sin objetos)</option>
+    </select>
+
+    <div id="methodObjetos">
+      <label>Descripción de la unidad de muestra</label>
+      <input type="text" id="zoneUnitRef" placeholder="Ej. Una fila de 3 carpas">
+      <div class="hint">La unidad es el pedazo de zona que vas a fotografiar cada vez.</div>
+      <label>¿Cuántas unidades de ese tamaño caben en toda la zona?</label>
+      <input type="number" id="zoneTotalUnits" placeholder="Ej. 18 filas de carpas en total">
+    </div>
+
+    <div id="methodPasos" style="display:none">
+      <div class="hint">Primero camina y mide, una sola vez, antes de que la zona se llene.</div>
+      <label>Tamaño de tu muestra (el pedazo que vas a fotografiar cada vez)</label>
+      <div style="display:flex; gap:8px">
+        <div style="flex:1"><input type="number" id="stepsMuestraAncho" placeholder="Ancho (pasos)" oninput="computeStepUnits()"></div>
+        <div style="flex:1"><input type="number" id="stepsMuestraFondo" placeholder="Fondo (pasos)" oninput="computeStepUnits()"></div>
+      </div>
+      <label>Tamaño total de la zona</label>
+      <div class="hint">Si la zona no es un rectángulo perfecto, divídela mentalmente en 2 o 3 tramos rectangulares y agrégalos — se suman solos.</div>
+      <div id="zoneSegmentsList"></div>
+      <button type="button" class="secondary small" onclick="addZoneSegment()">+ Agregar otro tramo</button>
+      <div class="result-box" id="stepsResult" style="display:none">
+        Área total de la zona: <strong id="stepsZonaAreaValue">–</strong> pasos² · Tu muestra cabe <strong id="stepsUnitsValue">–</strong> veces.
+      </div>
+    </div>
+
+    <button onclick="addZone()">Guardar zona</button>
+    <div class="status" id="zoneStatus"></div>
+  </div>
+  <div class="card">
+    <h2>Zonas definidas</h2>
+    <div id="zoneList"><div class="empty">Todavía no hay zonas.</div></div>
+  </div>
+</div>
+
+<!-- NUEVA RONDA -->
+<div class="panel" id="panel-ronda">
+  <div class="card">
+    <h2>Tomar muestras de una zona</h2>
+    <label>Zona</label>
+    <select id="roundZone" onchange="resetSamples()"></select>
+    <div class="hint" id="zoneReminder"></div>
+
+    <label>Foto de una unidad de muestra</label>
+    <input type="file" id="roundPhoto" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+    <div class="hint">Toma idealmente 4-5 muestras, en puntos distintos y típicos de la zona (no siempre la misma esquina), manteniendo el mismo tamaño de encuadre. Con más muestras, el margen de error calculado es más confiable.</div>
+    <div class="photo-wrap">
+      <img id="photoPreview" class="photo-preview" style="display:none">
+      <canvas id="overlay" class="overlay" style="display:none"></canvas>
+    </div>
+    <div class="status" id="detectStatus"></div>
+
+    <div class="count-row" id="countRow" style="display:none">
+      <button class="secondary round-btn" onclick="adjustCount(-1)">−</button>
+      <div class="count-big" id="countBig">0</div>
+      <button class="secondary round-btn" onclick="adjustCount(1)">+</button>
+    </div>
+    <div class="hint" id="countHint" style="text-align:center; display:none">Detectadas automáticamente — ajusta con +/− si el modelo se equivocó</div>
+
+    <button id="addSampleBtn" onclick="addSample()" style="display:none">Agregar esta muestra</button>
+
+    <div id="samplesList" style="margin-top:12px"></div>
+
+    <button id="saveRoundBtn" class="secondary" onclick="saveRound()" style="display:none">Guardar ronda con estas muestras</button>
+    <div class="status" id="roundStatus"></div>
+    <div class="result-box" id="resultBox" style="display:none"></div>
+  </div>
+</div>
+
+<!-- HISTORIAL -->
+<div class="panel" id="panel-historial">
+  <div class="card">
+    <h2>Aforo instantáneo actual</h2>
+    <div id="currentTotals"><div class="empty">Registra al menos una ronda por zona.</div></div>
+  </div>
+  <div class="card">
+    <h2>Curva del día</h2>
+    <label>Día</label>
+    <select id="chartDaySelect" onchange="drawChart()"></select>
+    <canvas id="dayChart" style="width:100%; height:180px; margin-top:10px"></canvas>
+    <div class="empty" id="chartEmpty">Sin datos de este día todavía.</div>
+  </div>
+  <div class="card">
+    <h2>Registro completo</h2>
+    <table id="logTable">
+      <thead><tr><th>Hora</th><th>Zona</th><th>Muestras</th><th>λ̂ (media)</th><th>Total (IC 95%)</th></tr></thead>
+      <tbody id="logBody"></tbody>
+    </table>
+    <div class="empty" id="logEmpty">Sin registros todavía.</div>
+  </div>
+  <button class="secondary" onclick="resetAll()">Borrar todos los datos</button>
+</div>
+
+<!-- ENCUESTAS -->
+<div class="panel" id="panel-encuestas">
+  <div class="card">
+    <h2>Registrar dato de encuestas</h2>
+    <div class="hint">Si las encuestadoras te dan un promedio al final del día, mete una sola fila con ese promedio y cuántas encuestas representa — no hace falta desagregar una por una.</div>
+    <label>Fecha</label>
+    <input type="date" id="surveyDate">
+    <label>Tiempo de permanencia promedio (horas)</label>
+    <input type="number" id="surveyHoras" step="0.1" placeholder="Ej. 3.2">
+    <label>Días asistidos promedio (incluyendo hoy)</label>
+    <input type="number" id="surveyDias" step="0.1" placeholder="Ej. 1.8">
+    <label>¿Cuántas encuestas representa este dato?</label>
+    <input type="number" id="surveyN" placeholder="Ej. 50">
+    <button onclick="addSurvey()">Guardar dato</button>
+    <div class="status" id="surveyStatus"></div>
+  </div>
+  <div class="card">
+    <h2>Datos registrados (<span id="surveyCount">0</span>)</h2>
+    <table>
+      <thead><tr><th>Fecha</th><th>Horas</th><th>Días</th><th>n</th><th></th></tr></thead>
+      <tbody id="surveyBody"></tbody>
+    </table>
+    <div class="empty" id="surveyEmpty">Sin datos todavía.</div>
+  </div>
+</div>
+
+<!-- RESUMEN -->
+<div class="panel" id="panel-resumen">
+  <div class="card">
+    <h2>Resumen por día</h2>
+    <div id="dailySummary"><div class="empty">Registra rondas para ver el resumen.</div></div>
+  </div>
+  <div class="card">
+    <h2>Resumen del evento completo</h2>
+    <div id="eventSummary"><div class="empty">Registra al menos un día completo.</div></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<script>
+let zones = [];
+let rounds = [];
+let surveys = [];
+let dayConfig = {}; // { 'YYYY-MM-DD': { hours: 10 } }
+let currentSamples = [];
+let lastDetectedCount = 0;
+let model = null;
+const YOLO_MODEL_URL = './yolov8n_best_web_model/model.json';
+const YOLO_IMAGE_SIZE = 640;
+const SCORE_THRESHOLD = 0.45;
+const NMS_IOU_THRESHOLD = 0.45;
+const MAX_DETECTIONS = 300;
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'historial') renderHistorial();
+    if (tab.dataset.tab === 'encuestas') renderSurveys();
+    if (tab.dataset.tab === 'resumen') renderResumen();
+  };
+});
+
+// --- Almacenamiento local (sin internet) ---
+let memoryFallback = { zones: null, rounds: null, surveys: null, dayConfig: null };
+function loadKey(key, fallbackValue) {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : (fallbackValue !== undefined ? fallbackValue : []); }
+  catch (e) { return memoryFallback[key] || (fallbackValue !== undefined ? fallbackValue : []); }
+}
+function saveKey(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); }
+  catch (e) { memoryFallback[key] = value; }
+}
+function loadData() {
+  zones = loadKey('zones', []);
+  rounds = loadKey('rounds', []);
+  surveys = loadKey('surveys', []);
+  dayConfig = loadKey('dayConfig', {});
+  renderZones();
+  renderZoneSelect();
+  const dateEl = document.getElementById('surveyDate');
+  if (dateEl) dateEl.value = new Date().toISOString().slice(0,10);
+}
+function saveZones() { saveKey('zones', zones); }
+function saveRounds() { saveKey('rounds', rounds); }
+function saveSurveys() { saveKey('surveys', surveys); }
+function saveDayConfig() { saveKey('dayConfig', dayConfig); }
+
+// --- Modelo de detección automática (corre en el celular, no en un servidor) ---
+async function loadModel() {
+  const banner = document.getElementById('modelBanner');
+  try {
+    model = await tf.loadGraphModel(YOLO_MODEL_URL);
+    banner.textContent = 'Detector YOLO CrowdHuman listo. Prueba en modo avión antes del evento para confirmar que funciona sin señal.';
+    banner.classList.remove('warn');
+  } catch (e) {
+    banner.textContent = 'No se pudo cargar el detector YOLO. Revisa que la carpeta yolov8n_best_web_model esté junto a este HTML. Puedes seguir usando el conteo manual con los botones +/-.';
+  }
+}
+loadModel();
+
+// --- Zonas ---
+let zoneSegmentCount = 0;
+
+function toggleZoneMethod() {
+  const method = document.getElementById('zoneMethod').value;
+  document.getElementById('methodObjetos').style.display = method === 'objetos' ? 'block' : 'none';
+  document.getElementById('methodPasos').style.display = method === 'pasos' ? 'block' : 'none';
+  if (method === 'pasos' && document.getElementById('zoneSegmentsList').children.length === 0) {
+    resetZoneSegments();
+  }
+}
+
+function addZoneSegment() {
+  zoneSegmentCount++;
+  const id = zoneSegmentCount;
+  const div = document.createElement('div');
+  div.id = 'segment-' + id;
+  div.style.cssText = 'display:flex; gap:8px; align-items:center; margin-bottom:6px';
+  div.innerHTML = `
+    <div style="flex:1"><input type="number" id="seg${id}Ancho" placeholder="Tramo ${id}: ancho (pasos)" oninput="computeStepUnits()"></div>
+    <div style="flex:1"><input type="number" id="seg${id}Fondo" placeholder="Tramo ${id}: fondo (pasos)" oninput="computeStepUnits()"></div>
+    ${id > 1 ? `<button type="button" class="secondary small" onclick="removeZoneSegment(${id})">×</button>` : ''}
+  `;
+  document.getElementById('zoneSegmentsList').appendChild(div);
+  computeStepUnits();
+}
+function removeZoneSegment(id) {
+  const el = document.getElementById('segment-' + id);
+  if (el) el.remove();
+  computeStepUnits();
+}
+function resetZoneSegments() {
+  document.getElementById('zoneSegmentsList').innerHTML = '';
+  zoneSegmentCount = 0;
+  addZoneSegment();
+}
+function getZoneSegments() {
+  const segments = [];
+  document.querySelectorAll('#zoneSegmentsList > div').forEach(div => {
+    const id = div.id.split('-')[1];
+    const ancho = parseFloat(document.getElementById('seg' + id + 'Ancho').value);
+    const fondo = parseFloat(document.getElementById('seg' + id + 'Fondo').value);
+    if (ancho > 0 && fondo > 0) segments.push({ ancho, fondo });
+  });
+  return segments;
+}
+
+function computeStepUnits() {
+  const sw = parseFloat(document.getElementById('stepsMuestraAncho').value);
+  const sf = parseFloat(document.getElementById('stepsMuestraFondo').value);
+  const segments = getZoneSegments();
+  const zonaArea = segments.reduce((a,s) => a + s.ancho * s.fondo, 0);
+  const box = document.getElementById('stepsResult');
+  if (sw > 0 && sf > 0 && zonaArea > 0) {
+    const units = zonaArea / (sw * sf);
+    document.getElementById('stepsZonaAreaValue').textContent = zonaArea.toFixed(1);
+    document.getElementById('stepsUnitsValue').textContent = units.toFixed(1);
+    box.style.display = 'block';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+function addZone() {
+  const name = document.getElementById('zoneName').value.trim();
+  const method = document.getElementById('zoneMethod').value;
+  const statusEl = document.getElementById('zoneStatus');
+  let unitRef, totalUnits, stepsDetail = null;
+
+  if (method === 'objetos') {
+    unitRef = document.getElementById('zoneUnitRef').value.trim();
+    totalUnits = parseFloat(document.getElementById('zoneTotalUnits').value);
+    if (!name || !unitRef || !totalUnits) {
+      statusEl.textContent = 'Completa nombre, unidad de muestra y número de unidades.';
+      statusEl.className = 'status error';
+      return;
+    }
+  } else {
+    const sw = parseFloat(document.getElementById('stepsMuestraAncho').value);
+    const sf = parseFloat(document.getElementById('stepsMuestraFondo').value);
+    const segments = getZoneSegments();
+    const zonaArea = segments.reduce((a,s) => a + s.ancho * s.fondo, 0);
+    if (!name || !sw || !sf || segments.length === 0 || zonaArea <= 0) {
+      statusEl.textContent = 'Completa el nombre, el tamaño de la muestra y al menos un tramo de la zona.';
+      statusEl.className = 'status error';
+      return;
+    }
+    totalUnits = zonaArea / (sw * sf);
+    unitRef = `Muestra de ${sw}×${sf} pasos`;
+    stepsDetail = { sw, sf, segments, zonaArea };
+  }
+
+  zones.push({ id: 'z' + Date.now(), name, method, unitRef, totalUnits, stepsDetail });
+  saveZones();
+  statusEl.textContent = 'Zona guardada.';
+  statusEl.className = 'status ok';
+  document.getElementById('zoneName').value = '';
+  document.getElementById('zoneUnitRef').value = '';
+  document.getElementById('zoneTotalUnits').value = '';
+  ['stepsMuestraAncho','stepsMuestraFondo'].forEach(id => document.getElementById(id).value = '');
+  resetZoneSegments();
+  document.getElementById('stepsResult').style.display = 'none';
+  renderZones();
+  renderZoneSelect();
+}
+function deleteZone(id) {
+  zones = zones.filter(z => z.id !== id);
+  saveZones();
+  renderZones();
+  renderZoneSelect();
+}
+function renderZones() {
+  const el = document.getElementById('zoneList');
+  if (zones.length === 0) { el.innerHTML = '<div class="empty">Todavía no hay zonas.</div>'; return; }
+  el.innerHTML = zones.map(z => {
+    const detail = z.stepsDetail
+      ? `Muestra ${z.stepsDetail.sw}×${z.stepsDetail.sf} pasos · zona de ${z.stepsDetail.zonaArea.toFixed(1)} pasos² (${z.stepsDetail.segments.length} tramo${z.stepsDetail.segments.length > 1 ? 's' : ''})`
+      : escapeHtml(z.unitRef);
+    return `
+    <div class="zone-row">
+      <div>
+        <div class="zone-name">${escapeHtml(z.name)}</div>
+        <div class="zone-meta">${detail} · ${z.totalUnits.toFixed ? z.totalUnits.toFixed(1) : z.totalUnits} unidades en toda la zona</div>
+      </div>
+      <button class="secondary small" onclick="deleteZone('${z.id}')">Eliminar</button>
+    </div>
+  `;
+  }).join('');
+}
+function renderZoneSelect() {
+  const sel = document.getElementById('roundZone');
+  if (zones.length === 0) { sel.innerHTML = '<option value="">Primero crea una zona</option>'; return; }
+  sel.innerHTML = zones.map(z => `<option value="${z.id}">${escapeHtml(z.name)}</option>`).join('');
+  resetSamples();
+}
+
+// --- Foto + detección automática ---
+function handlePhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = document.getElementById('photoPreview');
+    img.src = reader.result;
+    img.style.display = 'block';
+    img.onload = () => runDetection(img);
+  };
+  reader.readAsDataURL(file);
+}
+
+async function runDetection(imgEl) {
+  const statusEl = document.getElementById('detectStatus');
+  const canvas = document.getElementById('overlay');
+  document.getElementById('countRow').style.display = 'flex';
+  document.getElementById('addSampleBtn').style.display = 'block';
+
+  if (!model) {
+    statusEl.textContent = 'Detector automático no disponible — cuenta manualmente con los botones +/-.';
+    statusEl.className = 'status error';
+    lastDetectedCount = 0;
+    document.getElementById('countBig').textContent = 0;
+    document.getElementById('countHint').style.display = 'none';
+    return;
+  }
+  statusEl.textContent = 'Detectando…';
+  statusEl.className = 'status';
+  try {
+    const people = await detectPeopleYolo(imgEl);
+
+    canvas.width = imgEl.clientWidth; canvas.height = imgEl.clientHeight;
+    canvas.style.display = 'block';
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const scaleX = imgEl.clientWidth / imgEl.naturalWidth;
+    const scaleY = imgEl.clientHeight / imgEl.naturalHeight;
+    ctx.strokeStyle = '#4fd1a5'; ctx.lineWidth = 2;
+    people.forEach(p => {
+      const [x,y,w,h] = p.bbox;
+      ctx.strokeRect(x*scaleX, y*scaleY, w*scaleX, h*scaleY);
+    });
+
+    lastDetectedCount = people.length;
+    document.getElementById('countBig').textContent = lastDetectedCount;
+    document.getElementById('countHint').style.display = 'block';
+    statusEl.textContent = people.length + ' personas detectadas automáticamente.';
+    statusEl.className = 'status ok';
+  } catch (e) {
+    statusEl.textContent = 'Error al detectar, cuenta manualmente con los botones +/-.';
+    statusEl.className = 'status error';
+    lastDetectedCount = 0;
+    document.getElementById('countBig').textContent = 0;
+  }
+}
+
+async function detectPeopleYolo(imgEl) {
+  const input = tf.tidy(() => tf.browser.fromPixels(imgEl)
+    .resizeBilinear([YOLO_IMAGE_SIZE, YOLO_IMAGE_SIZE])
+    .toFloat()
+    .div(255)
+    .expandDims(0));
+
+  let output;
+  try {
+    output = model.execute(input);
+    const outputTensor = pickOutputTensor(output);
+    return await decodeYoloOutput(outputTensor, imgEl.naturalWidth, imgEl.naturalHeight);
+  } finally {
+    if (output) disposeOutput(output);
+    input.dispose();
+  }
+}
+
+function pickOutputTensor(output) {
+  if (output instanceof tf.Tensor) return output;
+  if (Array.isArray(output)) return output[0];
+  const tensors = Object.values(output || {});
+  if (tensors.length === 0) throw new Error('El modelo no devolvio tensores.');
+  return tensors[0];
+}
+
+function disposeOutput(output) {
+  if (output instanceof tf.Tensor) {
+    output.dispose();
+  } else if (Array.isArray(output)) {
+    output.forEach(t => t.dispose());
+  } else if (output) {
+    Object.values(output).forEach(t => t.dispose && t.dispose());
+  }
+}
+
+async function decodeYoloOutput(outputTensor, imageWidth, imageHeight) {
+  const squeezed = outputTensor.squeeze();
+  const shape = squeezed.shape;
+  const data = await squeezed.data();
+  const rows = [];
+
+  if (shape.length !== 2) {
+    squeezed.dispose();
+    throw new Error('Salida YOLO inesperada: [' + outputTensor.shape.join(', ') + ']');
+  }
+
+  const attrsFirst = shape[0] <= 10;
+  const attrs = attrsFirst ? shape[0] : shape[1];
+  const count = attrsFirst ? shape[1] : shape[0];
+
+  if (attrs < 5) {
+    squeezed.dispose();
+    throw new Error('Salida YOLO sin confianza: [' + outputTensor.shape.join(', ') + ']');
+  }
+
+  for (let i = 0; i < count; i++) {
+    const xc = attrsFirst ? data[i] : data[i * attrs];
+    const yc = attrsFirst ? data[count + i] : data[i * attrs + 1];
+    const w = attrsFirst ? data[2 * count + i] : data[i * attrs + 2];
+    const h = attrsFirst ? data[3 * count + i] : data[i * attrs + 3];
+    const score = attrsFirst ? data[4 * count + i] : data[i * attrs + 4];
+    if (score < SCORE_THRESHOLD) continue;
+
+    const x = (xc - w / 2) * imageWidth / YOLO_IMAGE_SIZE;
+    const y = (yc - h / 2) * imageHeight / YOLO_IMAGE_SIZE;
+    const boxW = w * imageWidth / YOLO_IMAGE_SIZE;
+    const boxH = h * imageHeight / YOLO_IMAGE_SIZE;
+    const x1 = clamp(x, 0, imageWidth);
+    const y1 = clamp(y, 0, imageHeight);
+    const x2 = clamp(x + boxW, 0, imageWidth);
+    const y2 = clamp(y + boxH, 0, imageHeight);
+    if (x2 <= x1 || y2 <= y1) continue;
+    rows.push({ bbox: [x1, y1, x2 - x1, y2 - y1], box: [y1, x1, y2, x2], score });
+  }
+  squeezed.dispose();
+
+  if (rows.length === 0) return [];
+
+  const boxesTensor = tf.tensor2d(rows.map(r => r.box));
+  const scoresTensor = tf.tensor1d(rows.map(r => r.score));
+  const selected = await tf.image.nonMaxSuppressionAsync(
+    boxesTensor,
+    scoresTensor,
+    MAX_DETECTIONS,
+    NMS_IOU_THRESHOLD,
+    SCORE_THRESHOLD
+  );
+  const selectedIdx = Array.from(await selected.data());
+  boxesTensor.dispose();
+  scoresTensor.dispose();
+  selected.dispose();
+
+  return selectedIdx.map(i => rows[i]);
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function adjustCount(delta) {
+  const el = document.getElementById('countBig');
+  let val = parseInt(el.textContent, 10) + delta;
+  if (val < 0) val = 0;
+  el.textContent = val;
+}
+
+function addSample() {
+  const count = parseInt(document.getElementById('countBig').textContent, 10);
+  currentSamples.push(count);
+  renderSamples();
+  document.getElementById('photoPreview').style.display = 'none';
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('roundPhoto').value = '';
+  document.getElementById('countRow').style.display = 'none';
+  document.getElementById('addSampleBtn').style.display = 'none';
+  document.getElementById('countHint').style.display = 'none';
+  document.getElementById('detectStatus').textContent = '';
+}
+
+function renderSamples() {
+  const el = document.getElementById('samplesList');
+  el.innerHTML = currentSamples.map((c,i) => `<span class="sample-chip">Muestra ${i+1}: ${c}<button onclick="removeSample(${i})">×</button></span>`).join('');
+  document.getElementById('saveRoundBtn').style.display = currentSamples.length > 0 ? 'block' : 'none';
+}
+function removeSample(i) {
+  currentSamples.splice(i,1);
+  renderSamples();
+}
+function resetSamples() {
+  currentSamples = [];
+  renderSamples();
+  document.getElementById('resultBox').style.display = 'none';
+  document.getElementById('roundStatus').textContent = '';
+  const zoneId = document.getElementById('roundZone').value;
+  const zone = zones.find(z => z.id === zoneId);
+  document.getElementById('zoneReminder').textContent = zone ? `Unidad de esta zona: ${zone.unitRef}` : '';
+}
+
+// --- Funciones estadísticas: intervalo exacto de Poisson (método de Garwood) ---
+// Cuantiles de la distribución t de Student (95%, dos colas) para grados de libertad pequeños
+const T_TABLE = {1:12.706,2:4.303,3:3.182,4:2.776,5:2.571,6:2.447,7:2.365,8:2.306,9:2.262,10:2.228,
+  11:2.201,12:2.179,13:2.160,14:2.145,15:2.131,16:2.120,17:2.110,18:2.101,19:2.093,20:2.086,
+  21:2.080,22:2.074,23:2.069,24:2.064,25:2.060,26:2.056,27:2.052,28:2.048,29:2.045,30:2.042};
+function tCritical(df) {
+  if (df < 1) return T_TABLE[1];
+  if (df > 30) return 1.96;
+  return T_TABLE[df] || 1.96;
+}
+function sampleStdDev(arr, m) {
+  if (arr.length < 2) return 0;
+  const sumSq = arr.reduce((a,x) => a + Math.pow(x - m, 2), 0);
+  return Math.sqrt(sumSq / (arr.length - 1));
+}
+
+// --- Guardar ronda: margen de error basado en la variabilidad real de las muestras ---
+function saveRound() {
+  const zoneId = document.getElementById('roundZone').value;
+  const statusEl = document.getElementById('roundStatus');
+  if (!zoneId || currentSamples.length === 0) {
+    statusEl.textContent = 'Agrega al menos una muestra primero.';
+    statusEl.className = 'status error';
+    return;
+  }
+  const zone = zones.find(z => z.id === zoneId);
+  const k = currentSamples.length;
+  const mean = currentSamples.reduce((a,b)=>a+b,0) / k;
+
+  let lowerLambda, upperLambda, methodNote;
+  if (k >= 2) {
+    const sd = sampleStdDev(currentSamples, mean);
+    const se = sd / Math.sqrt(k);
+    const margin = tCritical(k - 1) * se;
+    lowerLambda = Math.max(0, mean - margin);
+    upperLambda = mean + margin;
+    methodNote = k < 4
+      ? `Basado en la variabilidad de tus ${k} muestras (con menos de 4 el margen puede ser inestable — agrega más si puedes)`
+      : `Basado en la variabilidad de tus ${k} muestras`;
+  } else {
+    // con una sola muestra no hay variabilidad propia que medir; se usa una aproximación provisional
+    lowerLambda = Math.max(0, mean - Math.sqrt(mean));
+    upperLambda = mean + Math.sqrt(mean);
+    methodNote = 'Muestra única — aproximación provisional, agrega más muestras para un margen confiable';
+  }
+
+  const total = Math.round(mean * zone.totalUnits);
+  const totalLower = Math.round(lowerLambda * zone.totalUnits);
+  const totalUpper = Math.round(upperLambda * zone.totalUnits);
+
+  const round = {
+    id: 'r' + Date.now(), zoneId, zoneName: zone.name,
+    timestamp: new Date().toISOString(),
+    samples: [...currentSamples], k, mean: mean.toFixed(2),
+    total, totalLower, totalUpper
+  };
+  rounds.push(round);
+  saveRounds();
+
+  const box = document.getElementById('resultBox');
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div>Muestras: ${currentSamples.join(', ')} (media = ${mean.toFixed(2)})</div>
+    <div style="margin-top:8px">Estimado para ${escapeHtml(zone.name)}:</div>
+    <div class="big">${total.toLocaleString('es-CO')}</div>
+    <div class="hint">Intervalo de confianza 95%: ${totalLower.toLocaleString('es-CO')} – ${totalUpper.toLocaleString('es-CO')}</div>
+    <div class="hint">${methodNote}</div>
+  `;
+  statusEl.textContent = 'Ronda guardada.';
+  statusEl.className = 'status ok';
+  resetSamples();
+}
+
+// --- Historial ---
+function getAvailableDays() {
+  const days = new Set();
+  rounds.forEach(r => days.add(r.timestamp.slice(0,10)));
+  return [...days].sort();
+}
+function getDayCurve(dateStr) {
+  const dayRounds = rounds.filter(r => r.timestamp.slice(0,10) === dateStr).sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
+  const lastByZone = {};
+  const curve = [];
+  dayRounds.forEach(r => {
+    lastByZone[r.zoneId] = r.total;
+    const sum = Object.values(lastByZone).reduce((a,b)=>a+b,0);
+    curve.push({ t: r.timestamp, total: sum });
+  });
+  return curve;
+}
+function populateChartDaySelect() {
+  const sel = document.getElementById('chartDaySelect');
+  const days = getAvailableDays();
+  if (days.length === 0) { sel.innerHTML = '<option value="">Sin datos</option>'; return; }
+  const prev = sel.value;
+  sel.innerHTML = days.map(d => `<option value="${d}">${d}</option>`).join('');
+  sel.value = days.includes(prev) ? prev : days[days.length-1];
+}
+function drawChart() {
+  const sel = document.getElementById('chartDaySelect');
+  const dateStr = sel.value;
+  const canvas = document.getElementById('dayChart');
+  const emptyEl = document.getElementById('chartEmpty');
+  const curve = dateStr ? getDayCurve(dateStr) : [];
+  if (curve.length === 0) { canvas.style.display = 'none'; emptyEl.style.display = 'block'; return; }
+  canvas.style.display = 'block'; emptyEl.style.display = 'none';
+  const ctx = canvas.getContext('2d');
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  const maxVal = Math.max(...curve.map(p=>p.total)) * 1.15 || 1;
+  const padL = 50, padB = 22, padT = 10, padR = 10;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  ctx.strokeStyle = '#345048'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, h-padB); ctx.lineTo(w-padR, h-padB); ctx.stroke();
+  ctx.fillStyle = '#9db3ab'; ctx.font = '10px sans-serif'; ctx.textAlign='right';
+  for (let i=0;i<=2;i++) {
+    const val = Math.round(maxVal * i / 2);
+    const y = h - padB - (plotH * i/2);
+    ctx.fillText(val.toLocaleString('es-CO'), padL-6, y+3);
+  }
+  ctx.strokeStyle = '#4fd1a5'; ctx.lineWidth = 2; ctx.beginPath();
+  curve.forEach((p,i) => {
+    const x = padL + (plotW * (curve.length===1?0.5:i/(curve.length-1)));
+    const y = h - padB - (plotH * p.total / maxVal);
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  ctx.fillStyle = '#4fd1a5';
+  curve.forEach((p,i) => {
+    const x = padL + (plotW * (curve.length===1?0.5:i/(curve.length-1)));
+    const y = h - padB - (plotH * p.total / maxVal);
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+  });
+  ctx.fillStyle = '#9db3ab'; ctx.textAlign = 'center';
+  ctx.fillText(new Date(curve[0].t).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}), padL+20, h-6);
+  ctx.fillText(new Date(curve[curve.length-1].t).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}), w-padR-20, h-6);
+}
+
+function renderHistorial() {
+  const latestByZone = {};
+  rounds.forEach(r => {
+    if (!latestByZone[r.zoneId] || r.timestamp > latestByZone[r.zoneId].timestamp) latestByZone[r.zoneId] = r;
+  });
+  const latest = Object.values(latestByZone);
+  const currentEl = document.getElementById('currentTotals');
+  if (latest.length === 0) {
+    currentEl.innerHTML = '<div class="empty">Registra al menos una ronda por zona.</div>';
+  } else {
+    const sum = latest.reduce((a, r) => a + r.total, 0);
+    currentEl.innerHTML = latest.map(r => `
+      <div class="totalline"><span>${escapeHtml(r.zoneName)}</span><span>${r.total.toLocaleString('es-CO')} (${r.totalLower.toLocaleString('es-CO')}–${r.totalUpper.toLocaleString('es-CO')})</span></div>
+    `).join('') + `<div class="totalline"><span>Aforo instantáneo total</span><span>${sum.toLocaleString('es-CO')}</span></div>`;
+  }
+  populateChartDaySelect();
+  drawChart();
+  const body = document.getElementById('logBody');
+  const empty = document.getElementById('logEmpty');
+  if (rounds.length === 0) { body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  const sorted = [...rounds].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  body.innerHTML = sorted.map(r => `
+    <tr>
+      <td>${new Date(r.timestamp).toLocaleString('es-CO', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'})}</td>
+      <td>${escapeHtml(r.zoneName)}</td>
+      <td>${r.samples.join(', ')}</td>
+      <td>${r.mean}</td>
+      <td>${r.total.toLocaleString('es-CO')} (${r.totalLower.toLocaleString('es-CO')}–${r.totalUpper.toLocaleString('es-CO')})</td>
+    </tr>
+  `).join('');
+}
+
+// --- Encuestas ---
+function addSurvey() {
+  const date = document.getElementById('surveyDate').value;
+  const horas = parseFloat(document.getElementById('surveyHoras').value);
+  const dias = parseFloat(document.getElementById('surveyDias').value);
+  const n = parseInt(document.getElementById('surveyN').value, 10);
+  const statusEl = document.getElementById('surveyStatus');
+  if (!date || !horas || !dias || !n) {
+    statusEl.textContent = 'Completa fecha, horas, días y cuántas encuestas representa.';
+    statusEl.className = 'status error';
+    return;
+  }
+  surveys.push({ id: 's' + Date.now(), date, horas, dias, n });
+  saveSurveys();
+  statusEl.textContent = 'Dato guardado.';
+  statusEl.className = 'status ok';
+  document.getElementById('surveyHoras').value = '';
+  document.getElementById('surveyDias').value = '';
+  document.getElementById('surveyN').value = '';
+  renderSurveys();
+}
+function deleteSurvey(id) {
+  surveys = surveys.filter(s => s.id !== id);
+  saveSurveys();
+  renderSurveys();
+}
+function renderSurveys() {
+  document.getElementById('surveyCount').textContent = surveys.length;
+  const body = document.getElementById('surveyBody');
+  const empty = document.getElementById('surveyEmpty');
+  if (surveys.length === 0) { body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  const sorted = [...surveys].sort((a,b)=>b.date.localeCompare(a.date));
+  body.innerHTML = sorted.map(s => `
+    <tr>
+      <td>${s.date}</td>
+      <td>${s.horas}</td>
+      <td>${s.dias}</td>
+      <td>${s.n}</td>
+      <td><button class="secondary small" onclick="deleteSurvey('${s.id}')">×</button></td>
+    </tr>
+  `).join('');
+}
+
+// --- Resumen ---
+function updateDayHours(day, value) {
+  dayConfig[day] = { hours: parseFloat(value) || 10 };
+  saveDayConfig();
+  renderResumen();
+}
+function renderResumen() {
+  const days = getAvailableDays();
+  const dailyEl = document.getElementById('dailySummary');
+  const eventEl = document.getElementById('eventSummary');
+  if (days.length === 0) {
+    dailyEl.innerHTML = '<div class="empty">Registra rondas para ver el resumen.</div>';
+    eventEl.innerHTML = '<div class="empty">Registra al menos un día completo.</div>';
+    return;
+  }
+  let totalAsistenciaEvento = 0;
+  let rows = '';
+  days.forEach(d => {
+    const curve = getDayCurve(d);
+    const totals = curve.map(p => p.total);
+    const pico = Math.max(...totals);
+    const promedio = totals.reduce((a,b)=>a+b,0) / totals.length;
+    const daySurveys = surveys.filter(s => s.date === d);
+    const daySurveyN = daySurveys.reduce((a,s)=>a+s.n,0);
+    const permanenciaProm = daySurveyN ? daySurveys.reduce((a,s)=>a + s.horas*s.n, 0) / daySurveyN : null;
+    if (!dayConfig[d]) dayConfig[d] = { hours: 10 };
+    const duracion = dayConfig[d].hours;
+    let asistenciaDia = null;
+    if (permanenciaProm) {
+      asistenciaDia = Math.round(promedio * (duracion / permanenciaProm));
+      totalAsistenciaEvento += asistenciaDia;
+    }
+    rows += `
+      <div class="zone-row" style="display:block; padding:12px 0">
+        <div class="zone-name">${d}</div>
+        <div class="zone-meta">Aforo pico: ${Math.round(pico).toLocaleString('es-CO')} · Aforo promedio: ${Math.round(promedio).toLocaleString('es-CO')}</div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:6px">
+          <label style="margin:0; white-space:nowrap">Duración evento (h)</label>
+          <input type="number" style="width:70px" value="${duracion}" onchange="updateDayHours('${d}', this.value)">
+        </div>
+        <div class="zone-meta" style="margin-top:6px">
+          Permanencia promedio: ${permanenciaProm ? permanenciaProm.toFixed(1) + ' h (' + daySurveyN + ' encuestas)' : 'sin datos de encuesta de este día'}
+        </div>
+        <div style="margin-top:6px; font-weight:600; color:var(--accent)">
+          ${asistenciaDia !== null ? 'Asistencia estimada: ' + asistenciaDia.toLocaleString('es-CO') + ' personas' : 'Falta al menos un dato de encuesta de este día para estimar asistencia'}
+        </div>
+      </div>
+    `;
+  });
+  dailyEl.innerHTML = rows;
+
+  const totalN = surveys.reduce((a,s)=>a+s.n,0);
+  if (totalN > 0 && totalAsistenciaEvento > 0) {
+    const promDias = surveys.reduce((a,s)=>a+s.dias*s.n,0) / totalN;
+    const unicos = Math.round(totalAsistenciaEvento / promDias);
+    eventEl.innerHTML = `
+      <div class="totalline"><span>Suma de asistencia diaria</span><span>${totalAsistenciaEvento.toLocaleString('es-CO')}</span></div>
+      <div class="totalline"><span>Promedio de días asistidos (ponderado, ${totalN} encuestas)</span><span>${promDias.toFixed(2)}</span></div>
+      <div class="totalline"><span>Asistentes únicos totales</span><span>${unicos.toLocaleString('es-CO')}</span></div>
+    `;
+  } else {
+    eventEl.innerHTML = '<div class="empty">Faltan datos de encuesta con días asistidos para calcular el total del evento.</div>';
+  }
+}
+
+function resetAll() {
+  if (!confirm('Esto borra todas las zonas, rondas y encuestas guardadas. ¿Continuar?')) return;
+  zones = []; rounds = []; surveys = []; dayConfig = {};
+  saveZones(); saveRounds(); saveSurveys(); saveDayConfig();
+  renderZones(); renderZoneSelect(); renderHistorial(); renderSurveys(); renderResumen();
+}
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+  });
+}
+
+loadData();
+resetZoneSegments();
+</script>
+</body>
+</html>
