@@ -43,7 +43,7 @@
   .zone-meta { color: var(--text-dim); font-size: 12px; }
   .photo-wrap { position: relative; margin-top: 10px; }
   .photo-preview { width: 100%; border-radius: 8px; max-height: 300px; object-fit: contain; background: #000; display: block; }
-  canvas.overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  canvas.overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer; }
   .result-box { background: var(--surface-2); border: 1px solid var(--accent-dim); border-radius: 8px; padding: 14px; margin-top: 14px; font-size: 13px; }
   .result-box .big { font-size: 26px; font-weight: 700; color: var(--accent); font-family: monospace; }
   .status { font-size: 13px; color: var(--warn); margin-top: 8px; }
@@ -81,7 +81,32 @@
 <!-- ZONAS -->
 <div class="panel active" id="panel-zonas">
   <div class="card">
+    <h2>Rango de sesgo del modelo (opcional)</h2>
+    <div class="hint">Si probaste el modelo en la herramienta de calibración aparte, ingresa el rango de sesgo que observaste (no un solo número — un rango es más honesto). Este rango se usa para ensanchar los dos extremos del intervalo de confianza final, no para corregir cada foto por un valor fijo. Deja ambos en 0 si no lo has medido todavía.</div>
+    <div style="display:flex; gap:8px">
+      <div style="flex:1">
+        <label>Sesgo mínimo observado (%)</label>
+        <input type="number" id="correctionMin" step="1" placeholder="Ej. 8" oninput="saveCorrectionRange()">
+      </div>
+      <div style="flex:1">
+        <label>Sesgo máximo observado (%)</label>
+        <input type="number" id="correctionMax" step="1" placeholder="Ej. 22" oninput="saveCorrectionRange()">
+      </div>
+    </div>
+    <div class="hint">Positivo si el modelo subestima (cuenta de menos), negativo si sobreestima (cuenta de más).</div>
+    <div class="status ok" id="correctionStatus"></div>
+  </div>
+  <div class="card">
     <h2>Agregar zona</h2>
+    <label>Zonas del festival (toca para completar el nombre)</label>
+    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px">
+      <button type="button" class="secondary small" onclick="fillZoneName('Artesanías')">Artesanías</button>
+      <button type="button" class="secondary small" onclick="fillZoneName('Alimentos')">Alimentos</button>
+      <button type="button" class="secondary small" onclick="fillZoneName('Bebidas')">Bebidas</button>
+      <button type="button" class="secondary small" onclick="fillZoneName('Zona de Conciertos')">Zona de Conciertos</button>
+      <button type="button" class="secondary small" onclick="fillZoneName('Quilombo')">Quilombo</button>
+    </div>
+    <div class="hint">Estas son las 5 zonas oficiales del festival. Tócalas para no tener que escribir el nombre — igual completas el resto del formulario para cada una (unidades, método de medición).</div>
     <label>Nombre de la zona</label>
     <input type="text" id="zoneName" placeholder="Ej. Tarima principal">
 
@@ -132,24 +157,29 @@
     <select id="roundZone" onchange="resetSamples()"></select>
     <div class="hint" id="zoneReminder"></div>
 
-    <label>Foto de una unidad de muestra</label>
+    <label>Foto de una porción de la zona</label>
     <input type="file" id="roundPhoto" accept="image/*" capture="environment" onchange="handlePhoto(event)">
-    <div class="hint">Toma idealmente 4-5 muestras, en puntos distintos y típicos de la zona (no siempre la misma esquina), manteniendo el mismo tamaño de encuadre. Con más muestras, el margen de error calculado es más confiable.</div>
+    <div class="hint">No hace falta que la foto cubra toda la zona. Después de detectar, ajusta la cuadrícula para que cada celda se vea del tamaño de tu unidad de muestra, y toca 4-5 celdas repartidas por la foto — cada una cuenta como una muestra.</div>
     <div class="photo-wrap">
       <img id="photoPreview" class="photo-preview" style="display:none">
-      <canvas id="overlay" class="overlay" style="display:none"></canvas>
+      <canvas id="overlay" class="overlay" style="display:none" onclick="handleCanvasTap(event)"></canvas>
     </div>
     <div class="status" id="detectStatus"></div>
 
-    <div class="count-row" id="countRow" style="display:none">
-      <button class="secondary round-btn" onclick="adjustCount(-1)">−</button>
-      <div class="count-big" id="countBig">0</div>
-      <button class="secondary round-btn" onclick="adjustCount(1)">+</button>
+    <div id="gridControls" style="display:none; margin-top:10px">
+      <div style="display:flex; gap:8px; align-items:center">
+        <label style="margin:0; flex:none">Columnas</label>
+        <input type="number" id="gridCols" value="4" min="1" max="12" style="width:60px" oninput="rebuildGrid()">
+        <label style="margin:0; flex:none">Filas</label>
+        <input type="number" id="gridRows" value="3" min="1" max="12" style="width:60px" oninput="rebuildGrid()">
+      </div>
+      <div class="hint">Toca las celdas de la foto que quieras usar como muestra (quedan resaltadas). Evita celdas cortadas en el borde.</div>
+      <div class="hint" id="gridSelectionHint"></div>
     </div>
-    <div class="hint" id="countHint" style="text-align:center; display:none">Detectadas automáticamente — ajusta con +/− si el modelo se equivocó</div>
 
-    <button id="addSampleBtn" onclick="addSample()" style="display:none">Agregar esta muestra</button>
+    <button id="addSampleBtn" onclick="addSelectedCellsAsSamples()" style="display:none">Agregar celdas seleccionadas como muestras</button>
 
+    <div id="sampleCounter" class="status" style="display:none"></div>
     <div id="samplesList" style="margin-top:12px"></div>
 
     <button id="saveRoundBtn" class="secondary" onclick="saveRound()" style="display:none">Guardar ronda con estas muestras</button>
@@ -174,7 +204,7 @@
   <div class="card">
     <h2>Registro completo</h2>
     <table id="logTable">
-      <thead><tr><th>Hora</th><th>Zona</th><th>Muestras</th><th>λ̂ (media)</th><th>Total (IC 95%)</th></tr></thead>
+      <thead><tr><th>Hora</th><th>Zona</th><th>Muestras</th><th>λ̂ (media)</th><th>Total (IC 95%)</th><th>Corrección</th></tr></thead>
       <tbody id="logBody"></tbody>
     </table>
     <div class="empty" id="logEmpty">Sin registros todavía.</div>
@@ -228,7 +258,10 @@ let surveys = [];
 let dayConfig = {}; // { 'YYYY-MM-DD': { hours: 10 } }
 let currentSamples = [];
 let lastDetectedCount = 0;
+let lastRawDetectedCount = 0;
 let model = null;
+let correctionMin = 0;
+let correctionMax = 0;
 const YOLO_MODEL_URL = './yolov8n_best_web_model/model.json';
 const YOLO_IMAGE_SIZE = 640;
 const SCORE_THRESHOLD = 0.45;
@@ -262,6 +295,12 @@ function loadData() {
   rounds = loadKey('rounds', []);
   surveys = loadKey('surveys', []);
   dayConfig = loadKey('dayConfig', {});
+  correctionMin = loadKey('correctionMin', 0);
+  correctionMax = loadKey('correctionMax', 0);
+  const cMinEl = document.getElementById('correctionMin');
+  const cMaxEl = document.getElementById('correctionMax');
+  if (cMinEl) cMinEl.value = correctionMin || '';
+  if (cMaxEl) cMaxEl.value = correctionMax || '';
   renderZones();
   renderZoneSelect();
   const dateEl = document.getElementById('surveyDate');
@@ -271,6 +310,20 @@ function saveZones() { saveKey('zones', zones); }
 function saveRounds() { saveKey('rounds', rounds); }
 function saveSurveys() { saveKey('surveys', surveys); }
 function saveDayConfig() { saveKey('dayConfig', dayConfig); }
+function saveCorrectionRange() {
+  const minVal = parseFloat(document.getElementById('correctionMin').value);
+  const maxVal = parseFloat(document.getElementById('correctionMax').value);
+  correctionMin = isNaN(minVal) ? 0 : minVal;
+  correctionMax = isNaN(maxVal) ? 0 : maxVal;
+  saveKey('correctionMin', correctionMin);
+  saveKey('correctionMax', correctionMax);
+  const statusEl = document.getElementById('correctionStatus');
+  if (correctionMin === 0 && correctionMax === 0) {
+    statusEl.textContent = 'Sin rango de sesgo aplicado.';
+  } else {
+    statusEl.textContent = `El intervalo de confianza final se ensanchará entre ${correctionMin > 0 ? '+' : ''}${correctionMin}% y ${correctionMax > 0 ? '+' : ''}${correctionMax}%.`;
+  }
+}
 
 // --- Modelo de detección automática (corre en el celular, no en un servidor) ---
 async function loadModel() {
@@ -287,6 +340,11 @@ loadModel();
 
 // --- Zonas ---
 let zoneSegmentCount = 0;
+
+function fillZoneName(name) {
+  document.getElementById('zoneName').value = name;
+  document.getElementById('zoneName').focus();
+}
 
 function toggleZoneMethod() {
   const method = document.getElementById('zoneMethod').value;
@@ -421,7 +479,14 @@ function renderZoneSelect() {
   resetSamples();
 }
 
-// --- Foto + detección automática ---
+// --- Foto + detección automática + cuadrícula de muestreo ---
+let lastDetections = [];
+let lastImageNaturalW = 0;
+let lastImageNaturalH = 0;
+let selectedCells = new Set();
+let gridColsVal = 4;
+let gridRowsVal = 3;
+
 function handlePhoto(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -437,47 +502,129 @@ function handlePhoto(event) {
 
 async function runDetection(imgEl) {
   const statusEl = document.getElementById('detectStatus');
-  const canvas = document.getElementById('overlay');
-  document.getElementById('countRow').style.display = 'flex';
-  document.getElementById('addSampleBtn').style.display = 'block';
+  selectedCells = new Set();
+  lastImageNaturalW = imgEl.naturalWidth;
+  lastImageNaturalH = imgEl.naturalHeight;
 
   if (!model) {
-    statusEl.textContent = 'Detector automático no disponible — cuenta manualmente con los botones +/-.';
+    statusEl.textContent = 'Detector automático no disponible por ahora. Puedes seguir con otra foto más tarde, o usar la herramienta de calibración para contar a mano.';
     statusEl.className = 'status error';
-    lastDetectedCount = 0;
-    document.getElementById('countBig').textContent = 0;
-    document.getElementById('countHint').style.display = 'none';
+    lastDetections = [];
+    document.getElementById('gridControls').style.display = 'none';
     return;
   }
   statusEl.textContent = 'Detectando…';
   statusEl.className = 'status';
   try {
     const people = await detectPeopleYolo(imgEl);
-
-    canvas.width = imgEl.clientWidth; canvas.height = imgEl.clientHeight;
-    canvas.style.display = 'block';
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    const scaleX = imgEl.clientWidth / imgEl.naturalWidth;
-    const scaleY = imgEl.clientHeight / imgEl.naturalHeight;
-    ctx.strokeStyle = '#4fd1a5'; ctx.lineWidth = 2;
-    people.forEach(p => {
-      const [x,y,w,h] = p.bbox;
-      ctx.strokeRect(x*scaleX, y*scaleY, w*scaleX, h*scaleY);
-    });
-
-    lastDetectedCount = people.length;
-    document.getElementById('countBig').textContent = lastDetectedCount;
-    document.getElementById('countHint').style.display = 'block';
-    statusEl.textContent = people.length + ' personas detectadas automáticamente.';
+    lastDetections = people;
+    gridColsVal = parseInt(document.getElementById('gridCols').value) || 4;
+    gridRowsVal = parseInt(document.getElementById('gridRows').value) || 3;
+    document.getElementById('gridControls').style.display = 'block';
+    drawOverlay();
+    updateSelectionHint();
+    statusEl.textContent = `${people.length} personas detectadas en toda la foto. Ahora ajusta la cuadrícula y toca tus celdas de muestra.`;
     statusEl.className = 'status ok';
   } catch (e) {
-    statusEl.textContent = 'Error al detectar, cuenta manualmente con los botones +/-.';
+    statusEl.textContent = 'Error al detectar: ' + e.message;
     statusEl.className = 'status error';
-    lastDetectedCount = 0;
-    document.getElementById('countBig').textContent = 0;
+    lastDetections = [];
+    document.getElementById('gridControls').style.display = 'none';
   }
 }
+
+function rebuildGrid() {
+  gridColsVal = parseInt(document.getElementById('gridCols').value) || 4;
+  gridRowsVal = parseInt(document.getElementById('gridRows').value) || 3;
+  selectedCells = new Set();
+  drawOverlay();
+  updateSelectionHint();
+}
+
+function drawOverlay() {
+  const imgEl = document.getElementById('photoPreview');
+  const canvas = document.getElementById('overlay');
+  canvas.width = imgEl.clientWidth;
+  canvas.height = imgEl.clientHeight;
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const scaleX = imgEl.clientWidth / lastImageNaturalW;
+  const scaleY = imgEl.clientHeight / lastImageNaturalH;
+
+  ctx.strokeStyle = '#4fd1a5';
+  ctx.lineWidth = 1.5;
+  lastDetections.forEach(p => {
+    const [x, y, w, h] = p.bbox;
+    ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+  });
+
+  const cellW = canvas.width / gridColsVal;
+  const cellH = canvas.height / gridRowsVal;
+  for (let r = 0; r < gridRowsVal; r++) {
+    for (let c = 0; c < gridColsVal; c++) {
+      const key = r + ',' + c;
+      const x = c * cellW, y = r * cellH;
+      if (selectedCells.has(key)) {
+        ctx.fillStyle = 'rgba(79,209,165,0.28)';
+        ctx.fillRect(x, y, cellW, cellH);
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, cellW, cellH);
+    }
+  }
+}
+
+function handleCanvasTap(evt) {
+  const canvas = document.getElementById('overlay');
+  if (canvas.style.display === 'none' || lastImageNaturalW === 0) return;
+  const rect = canvas.getBoundingClientRect();
+  const point = evt.touches && evt.touches[0] ? evt.touches[0] : evt;
+  const clickX = point.clientX - rect.left;
+  const clickY = point.clientY - rect.top;
+  const cellW = canvas.width / gridColsVal;
+  const cellH = canvas.height / gridRowsVal;
+  const col = Math.min(gridColsVal - 1, Math.max(0, Math.floor(clickX / cellW)));
+  const row = Math.min(gridRowsVal - 1, Math.max(0, Math.floor(clickY / cellH)));
+  const key = row + ',' + col;
+  if (selectedCells.has(key)) selectedCells.delete(key); else selectedCells.add(key);
+  drawOverlay();
+  updateSelectionHint();
+}
+
+function rawCellCount(row, col) {
+  const cellWNat = lastImageNaturalW / gridColsVal;
+  const cellHNat = lastImageNaturalH / gridRowsVal;
+  const x1 = col * cellWNat, x2 = x1 + cellWNat;
+  const y1 = row * cellHNat, y2 = y1 + cellHNat;
+  let count = 0;
+  lastDetections.forEach(p => {
+    const [bx, by, bw, bh] = p.bbox;
+    const cx = bx + bw / 2, cy = by + bh / 2;
+    if (cx >= x1 && cx < x2 && cy >= y1 && cy < y2) count++;
+  });
+  return count;
+}
+
+function updateSelectionHint() {
+  const hintEl = document.getElementById('gridSelectionHint');
+  const n = selectedCells.size;
+  hintEl.textContent = n > 0 ? `${n} celda(s) seleccionada(s) — cuenta cruda antes de corrección: ${[...selectedCells].map(k => { const [r,c]=k.split(',').map(Number); return rawCellCount(r,c); }).join(', ')}` : '';
+  document.getElementById('addSampleBtn').style.display = n > 0 ? 'block' : 'none';
+}
+
+function addSelectedCellsAsSamples() {
+  selectedCells.forEach(key => {
+    const [r, c] = key.split(',').map(Number);
+    currentSamples.push(rawCellCount(r, c));
+  });
+  selectedCells = new Set();
+  renderSamples();
+  drawOverlay();
+  updateSelectionHint();
+}
+
 
 async function detectPeopleYolo(imgEl) {
   const input = tf.tidy(() => tf.browser.fromPixels(imgEl)
@@ -579,30 +726,25 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-function adjustCount(delta) {
-  const el = document.getElementById('countBig');
-  let val = parseInt(el.textContent, 10) + delta;
-  if (val < 0) val = 0;
-  el.textContent = val;
-}
-
-function addSample() {
-  const count = parseInt(document.getElementById('countBig').textContent, 10);
-  currentSamples.push(count);
-  renderSamples();
-  document.getElementById('photoPreview').style.display = 'none';
-  document.getElementById('overlay').style.display = 'none';
-  document.getElementById('roundPhoto').value = '';
-  document.getElementById('countRow').style.display = 'none';
-  document.getElementById('addSampleBtn').style.display = 'none';
-  document.getElementById('countHint').style.display = 'none';
-  document.getElementById('detectStatus').textContent = '';
-}
-
 function renderSamples() {
   const el = document.getElementById('samplesList');
   el.innerHTML = currentSamples.map((c,i) => `<span class="sample-chip">Muestra ${i+1}: ${c}<button onclick="removeSample(${i})">×</button></span>`).join('');
   document.getElementById('saveRoundBtn').style.display = currentSamples.length > 0 ? 'block' : 'none';
+
+  const counterEl = document.getElementById('sampleCounter');
+  const n = currentSamples.length;
+  if (n === 0) {
+    counterEl.style.display = 'none';
+  } else {
+    counterEl.style.display = 'block';
+    if (n < 4) {
+      counterEl.textContent = `${n} de 4-5 muestras recomendadas — agrega ${4 - n} más para un margen de error confiable.`;
+      counterEl.className = 'status';
+    } else {
+      counterEl.textContent = `${n} de 4-5 muestras recomendadas — ya puedes guardar la ronda cuando quieras.`;
+      counterEl.className = 'status ok';
+    }
+  }
 }
 function removeSample(i) {
   currentSamples.splice(i,1);
@@ -616,6 +758,13 @@ function resetSamples() {
   const zoneId = document.getElementById('roundZone').value;
   const zone = zones.find(z => z.id === zoneId);
   document.getElementById('zoneReminder').textContent = zone ? `Unidad de esta zona: ${zone.unitRef}` : '';
+  document.getElementById('photoPreview').style.display = 'none';
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('roundPhoto').value = '';
+  document.getElementById('gridControls').style.display = 'none';
+  document.getElementById('detectStatus').textContent = '';
+  lastDetections = [];
+  selectedCells = new Set();
 }
 
 // --- Funciones estadísticas: intervalo exacto de Poisson (método de Garwood) ---
@@ -668,23 +817,38 @@ function saveRound() {
   const totalLower = Math.round(lowerLambda * zone.totalUnits);
   const totalUpper = Math.round(upperLambda * zone.totalUnits);
 
+  // El rango de sesgo del modelo ensancha los extremos del intervalo estadístico,
+  // en vez de corregir la cifra central por un solo valor supuesto.
+  const midCorrection = (correctionMin + correctionMax) / 2;
+  const finalCentral = Math.round(total * (1 + midCorrection / 100));
+  const finalLower = Math.max(0, Math.round(totalLower * (1 + correctionMin / 100)));
+  const finalUpper = Math.round(totalUpper * (1 + correctionMax / 100));
+
   const round = {
     id: 'r' + Date.now(), zoneId, zoneName: zone.name,
     timestamp: new Date().toISOString(),
     samples: [...currentSamples], k, mean: mean.toFixed(2),
-    total, totalLower, totalUpper
+    total: finalCentral, totalLower: finalLower, totalUpper: finalUpper,
+    statTotal: total, statLower: totalLower, statUpper: totalUpper,
+    correctionMin: correctionMin || 0, correctionMax: correctionMax || 0
   };
   rounds.push(round);
   saveRounds();
+
+  const hasCorrection = correctionMin !== 0 || correctionMax !== 0;
+  const correctionNote = hasCorrection
+    ? `<div class="hint">Rango estadístico antes de sesgo: ${totalLower.toLocaleString('es-CO')} – ${totalUpper.toLocaleString('es-CO')}. Ensanchado con el sesgo observado del modelo (${correctionMin > 0 ? '+' : ''}${correctionMin}% a ${correctionMax > 0 ? '+' : ''}${correctionMax}%).</div>`
+    : '';
 
   const box = document.getElementById('resultBox');
   box.style.display = 'block';
   box.innerHTML = `
     <div>Muestras: ${currentSamples.join(', ')} (media = ${mean.toFixed(2)})</div>
     <div style="margin-top:8px">Estimado para ${escapeHtml(zone.name)}:</div>
-    <div class="big">${total.toLocaleString('es-CO')}</div>
-    <div class="hint">Intervalo de confianza 95%: ${totalLower.toLocaleString('es-CO')} – ${totalUpper.toLocaleString('es-CO')}</div>
+    <div class="big">${finalCentral.toLocaleString('es-CO')}</div>
+    <div class="hint">Rango final: ${finalLower.toLocaleString('es-CO')} – ${finalUpper.toLocaleString('es-CO')}</div>
     <div class="hint">${methodNote}</div>
+    ${correctionNote}
   `;
   statusEl.textContent = 'Ronda guardada.';
   statusEl.className = 'status ok';
@@ -788,6 +952,7 @@ function renderHistorial() {
       <td>${r.samples.join(', ')}</td>
       <td>${r.mean}</td>
       <td>${r.total.toLocaleString('es-CO')} (${r.totalLower.toLocaleString('es-CO')}–${r.totalUpper.toLocaleString('es-CO')})</td>
+      <td>${(r.correctionMin || r.correctionMax) ? `${r.correctionMin>0?'+':''}${r.correctionMin}% a ${r.correctionMax>0?'+':''}${r.correctionMax}%` : '—'}</td>
     </tr>
   `).join('');
 }
