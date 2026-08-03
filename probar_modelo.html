@@ -88,7 +88,7 @@ let manualValue = 0;
 let tests = [];
 const YOLO_MODEL_URL = './yolov8n_best_web_model/model.json';
 const YOLO_IMAGE_SIZE = 640;
-const SCORE_THRESHOLD = 0.25;
+const SCORE_THRESHOLD = 0.45;
 const NMS_IOU_THRESHOLD = 0.45;
 const MAX_DETECTIONS = 300;
 
@@ -294,9 +294,14 @@ function renderLog() {
   const empty = document.getElementById('logEmpty');
   if (tests.length === 0) { summaryEl.innerHTML=''; body.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display = 'none';
-  const avgDiffPct = tests.reduce((a,t)=>a+t.diffPct,0) / tests.length;
-  const direction = avgDiffPct > 0 ? 'subestima' : 'sobreestima';
-  summaryEl.innerHTML = `<div class="result-box">Con ${tests.length} prueba(s), el modelo ${direction} en promedio un ${Math.abs(avgDiffPct).toFixed(0)}% frente a tu conteo manual.</div>`;
+  const diffs = tests.map(t => t.diffPct);
+  const minDiff = Math.min(...diffs);
+  const maxDiff = Math.max(...diffs);
+  summaryEl.innerHTML = `
+    <div class="result-box">
+      Con ${tests.length} prueba(s), el sesgo del modelo varió entre <strong>${minDiff > 0 ? '+' : ''}${minDiff.toFixed(0)}%</strong> y <strong>${maxDiff > 0 ? '+' : ''}${maxDiff.toFixed(0)}%</strong> frente a tu conteo manual (positivo = subestima, negativo = sobreestima).
+      <div class="hint" style="margin-top:8px">Usa este rango en el campo de "Rango de sesgo del modelo" de la app principal. Entre más pruebas hagas, más confiable es este rango.</div>
+    </div>`;
   const sorted = [...tests].sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
   body.innerHTML = sorted.map(t => `
     <tr>
