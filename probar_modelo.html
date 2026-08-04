@@ -14,40 +14,47 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); padding: 16px; max-width: 640px; margin-inline: auto; line-height: 1.5; }
   h1 { font-size: 20px; font-weight: 600; margin: 4px 0 2px; }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
   .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 10px; }
   .banner { background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; font-size: 12px; margin-bottom: 12px; }
   .banner.warn { background: #4a3a1a; border-color: var(--warn); color: #f5dfae; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-  input[type=file] { width: 100%; padding: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
+  label { display: block; font-size: 12px; color: var(--text-dim); margin: 10px 0 4px; }
+  input[type=file], input[type=number] { width: 100%; padding: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
   button { background: var(--accent); color: #0b1512; border: none; padding: 11px 16px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 12px; }
   button.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
   button.round-btn { width: 54px; height: 54px; border-radius: 50%; font-size: 22px; margin: 0; }
   .photo-wrap { position: relative; margin-top: 10px; }
   .photo-preview { width: 100%; border-radius: 8px; max-height: 320px; object-fit: contain; background: #000; display: block; }
-  canvas.overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  canvas.overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer; }
   .status { font-size: 13px; color: var(--warn); margin-top: 8px; }
   .status.error { color: var(--danger); }
   .status.ok { color: var(--accent); }
   .hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
   .count-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 10px; }
-  .count-big { font-size: 48px; font-weight: 700; color: var(--accent); font-family: monospace; min-width: 80px; text-align: center; }
+  .count-big { font-size: 44px; font-weight: 700; color: var(--accent); font-family: monospace; min-width: 70px; text-align: center; }
   .label-center { text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 14px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
   th, td { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--border); }
   th { color: var(--text-dim); font-weight: 500; }
   .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 20px 0; }
   .result-box { background: var(--surface-2); border: 1px solid var(--accent-dim); border-radius: 8px; padding: 14px; margin-top: 14px; font-size: 13px; }
+  .sample-chip { display: inline-flex; align-items:center; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 4px 6px 4px 10px; font-size: 12px; margin: 3px 4px 0 0; }
+  .sample-chip input { width: 42px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--accent); font-weight: 600; text-align:center; margin: 0 4px; padding: 2px 0; }
+  .sample-chip button { background: none; border: none; color: var(--danger); font-size: 14px; padding: 0 2px; margin: 0; cursor: pointer; }
 </style>
 </head>
 <body>
 
 <h1>Probar el modelo de conteo</h1>
-<div class="sub">Solo esto: subir una foto, ver qué cuenta el modelo, y comparar contra tu propio conteo.</div>
-<div class="banner">Guarda este archivo en tu celular y ábrelo con internet la primera vez. Después, prueba en modo avión para confirmar si sigue funcionando sin señal.</div>
-<div class="banner warn" id="modelBanner">Cargando el modelo de detección…</div>
+<div class="sub">Prueba 1: compara el conteo automático contra tu conteo manual. Prueba 2: practica la cuadrícula con una zona de ejemplo, sin tocar tus datos reales.</div>
+<div class="banner">Guarda este archivo (y la carpeta yolov8n_best_web_model junto a él) en tu celular, y ábrelo con internet la primera vez. Después, prueba en modo avión.</div>
+<div class="banner warn" id="modelBanner">Cargando el modelo YOLO (CrowdHuman)…</div>
 
+<!-- PRUEBA 1: comparación auto vs manual -->
 <div class="card">
-  <label class="hint" style="display:block; margin-bottom:6px">Foto de prueba</label>
+  <h2>Prueba 1 — Comparar conteo automático vs manual</h2>
+  <label>Foto de prueba</label>
   <input type="file" id="photo" accept="image/*" capture="environment" onchange="handlePhoto(event)">
   <div class="photo-wrap">
     <img id="preview" class="photo-preview" style="display:none">
@@ -70,7 +77,7 @@
 </div>
 
 <div class="card">
-  <h2 style="font-size:15px; margin:0 0 10px; color:var(--accent); text-transform:uppercase; letter-spacing:.04em">Historial de pruebas</h2>
+  <h2>Historial de pruebas (Prueba 1)</h2>
   <div id="summary"></div>
   <table>
     <thead><tr><th>Hora</th><th>Automático</th><th>Manual</th><th>Diferencia</th></tr></thead>
@@ -80,17 +87,65 @@
   <button class="secondary" onclick="resetAll()">Borrar historial</button>
 </div>
 
+<!-- PRUEBA 2: modo de práctica con zona + cuadrícula -->
+<div class="card">
+  <h2>Prueba 2 — Practica una zona de ejemplo con cuadrícula</h2>
+  <div class="hint">Esto es solo para practicar el flujo completo. No se guarda en tu app principal — usa números inventados si quieres.</div>
+  <label>Tamaño de tu muestra (pasos: ancho x fondo)</label>
+  <div style="display:flex; gap:8px">
+    <input type="number" id="pMuestraAncho" placeholder="Ancho" oninput="updatePracticeUnits()">
+    <input type="number" id="pMuestraFondo" placeholder="Fondo" oninput="updatePracticeUnits()">
+  </div>
+  <label>Tamaño total de la zona de ejemplo (pasos: ancho x fondo)</label>
+  <div style="display:flex; gap:8px">
+    <input type="number" id="pZonaAncho" placeholder="Ancho" oninput="updatePracticeUnits()">
+    <input type="number" id="pZonaFondo" placeholder="Fondo" oninput="updatePracticeUnits()">
+  </div>
+  <div class="result-box" id="practiceUnitsBox" style="display:none">Tu muestra cabe <strong id="practiceUnitsValue">–</strong> veces en la zona de ejemplo.</div>
+</div>
+
+<div class="card">
+  <h2>Foto de práctica + cuadrícula</h2>
+  <label>Foto</label>
+  <input type="file" id="practicePhoto" accept="image/*" capture="environment" onchange="handlePracticePhoto(event)">
+  <div class="hint">No necesitas que la foto cubra toda la zona. Sube una porción, ajusta la cuadrícula, y toca varias celdas.</div>
+  <div class="photo-wrap">
+    <img id="practicePreview" class="photo-preview" style="display:none">
+    <canvas id="practiceOverlay" class="overlay" style="display:none" onclick="handlePracticeCanvasTap(event)"></canvas>
+  </div>
+  <div class="status" id="practiceDetectStatus"></div>
+
+  <div id="practiceGridControls" style="display:none; margin-top:10px">
+    <div style="display:flex; gap:8px; align-items:center">
+      <label style="margin:0; flex:none">Columnas</label>
+      <input type="number" id="practiceGridCols" value="4" min="1" max="12" style="width:60px" oninput="rebuildPracticeGrid()">
+      <label style="margin:0; flex:none">Filas</label>
+      <input type="number" id="practiceGridRows" value="3" min="1" max="12" style="width:60px" oninput="rebuildPracticeGrid()">
+    </div>
+    <div class="hint">Ajusta hasta que cada cuadro se vea del tamaño de tu unidad de muestra. Toca las celdas que quieras usar (evita bordes cortados, prefiere celdas de la misma fila).</div>
+    <div class="hint" id="practiceSelectionHint"></div>
+  </div>
+
+  <button id="practiceAddBtn" onclick="addPracticeSamples()" style="display:none">Agregar celdas seleccionadas como muestra</button>
+
+  <div id="practiceSamplesList" style="margin-top:12px"></div>
+  <button id="practiceCalcBtn" class="secondary" onclick="calcPracticeTotal()" style="display:none">Calcular total estimado</button>
+  <div class="result-box" id="practiceResultBox" style="display:none"></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
 <script>
-let model = null;
-let autoValue = 0;
-let manualValue = 0;
-let tests = [];
+// ============ MODELO YOLO (el mismo que usa la app principal) ============
 const YOLO_MODEL_URL = './yolov8n_best_web_model/model.json';
 const YOLO_IMAGE_SIZE = 640;
 const SCORE_THRESHOLD = 0.45;
 const NMS_IOU_THRESHOLD = 0.45;
 const MAX_DETECTIONS = 300;
+
+let model = null;
+let autoValue = 0;
+let manualValue = 0;
+let tests = [];
 
 function loadKey(key) {
   try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : []; }
@@ -105,18 +160,81 @@ async function loadModel() {
   const banner = document.getElementById('modelBanner');
   try {
     model = await tf.loadGraphModel(YOLO_MODEL_URL);
-    banner.textContent = 'Modelo listo. Prueba ahora en modo avión para confirmar que funciona sin señal.';
+    banner.textContent = 'Detector YOLO CrowdHuman listo. Prueba en modo avión para confirmar que funciona sin señal.';
     banner.classList.remove('warn');
-    banner.textContent = 'Modelo YOLO CrowdHuman listo. Ya puedes probar fotos contra tu conteo manual.';
   } catch (e) {
-    setTimeout(() => {
-      banner.textContent = 'No se pudo cargar ./yolov8n_best_web_model/model.json. Primero exporta el .pt a TensorFlow.js y deja esa carpeta junto a este HTML.';
-    }, 0);
-    banner.textContent = 'No se pudo cargar el modelo (revisa conexión). Intenta de nuevo abriendo la página con internet.';
+    banner.textContent = 'No se pudo cargar el modelo (revisa que la carpeta yolov8n_best_web_model esté junto a este archivo, y tu conexión).';
   }
 }
 loadModel();
 
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+
+async function detectPeopleYolo(imgEl) {
+  const input = tf.tidy(() => tf.browser.fromPixels(imgEl)
+    .resizeBilinear([YOLO_IMAGE_SIZE, YOLO_IMAGE_SIZE])
+    .toFloat()
+    .div(255)
+    .expandDims(0));
+  let output;
+  try {
+    output = model.execute(input);
+    const outputTensor = pickOutputTensor(output);
+    return await decodeYoloOutput(outputTensor, imgEl.naturalWidth, imgEl.naturalHeight);
+  } finally {
+    if (output) disposeOutput(output);
+    input.dispose();
+  }
+}
+function pickOutputTensor(output) {
+  if (output instanceof tf.Tensor) return output;
+  if (Array.isArray(output)) return output[0];
+  const tensors = Object.values(output || {});
+  if (tensors.length === 0) throw new Error('El modelo no devolvio tensores.');
+  return tensors[0];
+}
+function disposeOutput(output) {
+  if (output instanceof tf.Tensor) output.dispose();
+  else if (Array.isArray(output)) output.forEach(t => t.dispose());
+  else if (output) Object.values(output).forEach(t => t.dispose && t.dispose());
+}
+async function decodeYoloOutput(outputTensor, imageWidth, imageHeight) {
+  const squeezed = outputTensor.squeeze();
+  const shape = squeezed.shape;
+  const data = await squeezed.data();
+  const rows = [];
+  if (shape.length !== 2) { squeezed.dispose(); throw new Error('Salida YOLO inesperada: [' + outputTensor.shape.join(', ') + ']'); }
+  const attrsFirst = shape[0] <= 10;
+  const attrs = attrsFirst ? shape[0] : shape[1];
+  const count = attrsFirst ? shape[1] : shape[0];
+  if (attrs < 5) { squeezed.dispose(); throw new Error('Salida YOLO sin confianza: [' + outputTensor.shape.join(', ') + ']'); }
+  for (let i = 0; i < count; i++) {
+    const xc = attrsFirst ? data[i] : data[i * attrs];
+    const yc = attrsFirst ? data[count + i] : data[i * attrs + 1];
+    const w = attrsFirst ? data[2 * count + i] : data[i * attrs + 2];
+    const h = attrsFirst ? data[3 * count + i] : data[i * attrs + 3];
+    const score = attrsFirst ? data[4 * count + i] : data[i * attrs + 4];
+    if (score < SCORE_THRESHOLD) continue;
+    const x = (xc - w / 2) * imageWidth / YOLO_IMAGE_SIZE;
+    const y = (yc - h / 2) * imageHeight / YOLO_IMAGE_SIZE;
+    const boxW = w * imageWidth / YOLO_IMAGE_SIZE;
+    const boxH = h * imageHeight / YOLO_IMAGE_SIZE;
+    const x1 = clamp(x, 0, imageWidth), y1 = clamp(y, 0, imageHeight);
+    const x2 = clamp(x + boxW, 0, imageWidth), y2 = clamp(y + boxH, 0, imageHeight);
+    if (x2 <= x1 || y2 <= y1) continue;
+    rows.push({ bbox: [x1, y1, x2 - x1, y2 - y1], box: [y1, x1, y2, x2], score });
+  }
+  squeezed.dispose();
+  if (rows.length === 0) return [];
+  const boxesTensor = tf.tensor2d(rows.map(r => r.box));
+  const scoresTensor = tf.tensor1d(rows.map(r => r.score));
+  const selected = await tf.image.nonMaxSuppressionAsync(boxesTensor, scoresTensor, MAX_DETECTIONS, NMS_IOU_THRESHOLD, SCORE_THRESHOLD);
+  const selectedIdx = Array.from(await selected.data());
+  boxesTensor.dispose(); scoresTensor.dispose(); selected.dispose();
+  return selectedIdx.map(i => rows[i]);
+}
+
+// ============ PRUEBA 1: comparación auto vs manual ============
 function handlePhoto(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -129,7 +247,6 @@ function handlePhoto(event) {
   };
   reader.readAsDataURL(file);
 }
-
 async function runDetection(imgEl) {
   const statusEl = document.getElementById('detectStatus');
   const canvas = document.getElementById('overlay');
@@ -137,7 +254,6 @@ async function runDetection(imgEl) {
   document.getElementById('saveBtn').style.display = 'block';
   manualValue = 0;
   document.getElementById('manualCount').textContent = 0;
-
   if (!model) {
     statusEl.textContent = 'Modelo no disponible todavía.';
     statusEl.className = 'status error';
@@ -166,112 +282,10 @@ async function runDetection(imgEl) {
     statusEl.className = 'status error';
   }
 }
-
-async function detectPeopleYolo(imgEl) {
-  const input = tf.tidy(() => tf.browser.fromPixels(imgEl)
-    .resizeBilinear([YOLO_IMAGE_SIZE, YOLO_IMAGE_SIZE])
-    .toFloat()
-    .div(255)
-    .expandDims(0));
-
-  let output;
-  try {
-    output = model.execute(input);
-    const outputTensor = pickOutputTensor(output);
-    return await decodeYoloOutput(outputTensor, imgEl.naturalWidth, imgEl.naturalHeight);
-  } finally {
-    if (output) disposeOutput(output);
-    input.dispose();
-  }
-}
-
-function pickOutputTensor(output) {
-  if (output instanceof tf.Tensor) return output;
-  if (Array.isArray(output)) return output[0];
-  const tensors = Object.values(output || {});
-  if (tensors.length === 0) throw new Error('El modelo no devolvio tensores.');
-  return tensors[0];
-}
-
-function disposeOutput(output) {
-  if (output instanceof tf.Tensor) {
-    output.dispose();
-  } else if (Array.isArray(output)) {
-    output.forEach(t => t.dispose());
-  } else if (output) {
-    Object.values(output).forEach(t => t.dispose && t.dispose());
-  }
-}
-
-async function decodeYoloOutput(outputTensor, imageWidth, imageHeight) {
-  const squeezed = outputTensor.squeeze();
-  const shape = squeezed.shape;
-  const data = await squeezed.data();
-  const rows = [];
-
-  if (shape.length !== 2) {
-    squeezed.dispose();
-    throw new Error('Salida YOLO inesperada: [' + outputTensor.shape.join(', ') + ']');
-  }
-
-  const attrsFirst = shape[0] <= 10;
-  const attrs = attrsFirst ? shape[0] : shape[1];
-  const count = attrsFirst ? shape[1] : shape[0];
-
-  if (attrs < 5) {
-    squeezed.dispose();
-    throw new Error('Salida YOLO sin confianza: [' + outputTensor.shape.join(', ') + ']');
-  }
-
-  for (let i = 0; i < count; i++) {
-    const xc = attrsFirst ? data[i] : data[i * attrs];
-    const yc = attrsFirst ? data[count + i] : data[i * attrs + 1];
-    const w = attrsFirst ? data[2 * count + i] : data[i * attrs + 2];
-    const h = attrsFirst ? data[3 * count + i] : data[i * attrs + 3];
-    const score = attrsFirst ? data[4 * count + i] : data[i * attrs + 4];
-    if (score < SCORE_THRESHOLD) continue;
-
-    const x = (xc - w / 2) * imageWidth / YOLO_IMAGE_SIZE;
-    const y = (yc - h / 2) * imageHeight / YOLO_IMAGE_SIZE;
-    const boxW = w * imageWidth / YOLO_IMAGE_SIZE;
-    const boxH = h * imageHeight / YOLO_IMAGE_SIZE;
-    const x1 = clamp(x, 0, imageWidth);
-    const y1 = clamp(y, 0, imageHeight);
-    const x2 = clamp(x + boxW, 0, imageWidth);
-    const y2 = clamp(y + boxH, 0, imageHeight);
-    if (x2 <= x1 || y2 <= y1) continue;
-    rows.push({ bbox: [x1, y1, x2 - x1, y2 - y1], box: [y1, x1, y2, x2], score });
-  }
-  squeezed.dispose();
-
-  if (rows.length === 0) return [];
-
-  const boxesTensor = tf.tensor2d(rows.map(r => r.box));
-  const scoresTensor = tf.tensor1d(rows.map(r => r.score));
-  const selected = await tf.image.nonMaxSuppressionAsync(
-    boxesTensor,
-    scoresTensor,
-    MAX_DETECTIONS,
-    NMS_IOU_THRESHOLD,
-    SCORE_THRESHOLD
-  );
-  const selectedIdx = Array.from(await selected.data());
-  boxesTensor.dispose();
-  scoresTensor.dispose();
-  selected.dispose();
-
-  return selectedIdx.map(i => rows[i]);
-}
-
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
 function adjust(delta) {
   manualValue = Math.max(0, manualValue + delta);
   document.getElementById('manualCount').textContent = manualValue;
 }
-
 function saveComparison() {
   const diff = manualValue - autoValue;
   const diffPct = manualValue > 0 ? (diff / manualValue * 100) : 0;
@@ -287,7 +301,6 @@ function saveComparison() {
   document.getElementById('saveBtn').style.display = 'none';
   document.getElementById('autoCount').textContent = '–';
 }
-
 function renderLog() {
   const summaryEl = document.getElementById('summary');
   const body = document.getElementById('logBody');
@@ -300,14 +313,13 @@ function renderLog() {
   summaryEl.innerHTML = `
     <div class="result-box">
       Con ${tests.length} prueba(s), el sesgo del modelo varió entre <strong>${minDiff > 0 ? '+' : ''}${minDiff.toFixed(0)}%</strong> y <strong>${maxDiff > 0 ? '+' : ''}${maxDiff.toFixed(0)}%</strong> frente a tu conteo manual (positivo = subestima, negativo = sobreestima).
-      <div class="hint" style="margin-top:8px">Usa este rango en el campo de "Rango de sesgo del modelo" de la app principal. Entre más pruebas hagas, más confiable es este rango.</div>
+      <div class="hint" style="margin-top:8px">Usa este rango en el campo de "Rango de sesgo del modelo" de la app principal.</div>
     </div>`;
   const sorted = [...tests].sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
   body.innerHTML = sorted.map(t => `
     <tr>
       <td>${new Date(t.timestamp).toLocaleString('es-CO', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'})}</td>
-      <td>${t.auto}</td>
-      <td>${t.manual}</td>
+      <td>${t.auto}</td><td>${t.manual}</td>
       <td>${t.diff > 0 ? '+' : ''}${t.diff} (${t.diffPct.toFixed(0)}%)</td>
     </tr>
   `).join('');
@@ -317,6 +329,201 @@ function resetAll() {
   tests = []; saveKey('tests', tests); renderLog();
 }
 renderLog();
+
+// ============ PRUEBA 2: zona de práctica + cuadrícula ============
+let practiceDetections = [];
+let practiceImgW = 0, practiceImgH = 0;
+let practiceSelectedCells = new Set();
+let practiceGridColsVal = 4, practiceGridRowsVal = 3;
+let practiceSamples = [];
+
+function updatePracticeUnits() {
+  const sw = parseFloat(document.getElementById('pMuestraAncho').value);
+  const sf = parseFloat(document.getElementById('pMuestraFondo').value);
+  const zw = parseFloat(document.getElementById('pZonaAncho').value);
+  const zf = parseFloat(document.getElementById('pZonaFondo').value);
+  const box = document.getElementById('practiceUnitsBox');
+  if (sw > 0 && sf > 0 && zw > 0 && zf > 0) {
+    const units = (zw * zf) / (sw * sf);
+    document.getElementById('practiceUnitsValue').textContent = units.toFixed(1);
+    box.style.display = 'block';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+function handlePracticePhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = document.getElementById('practicePreview');
+    img.src = reader.result;
+    img.style.display = 'block';
+    img.onload = () => runPracticeDetection(img);
+  };
+  reader.readAsDataURL(file);
+}
+
+async function runPracticeDetection(imgEl) {
+  const statusEl = document.getElementById('practiceDetectStatus');
+  practiceSelectedCells = new Set();
+  practiceImgW = imgEl.naturalWidth;
+  practiceImgH = imgEl.naturalHeight;
+  if (!model) {
+    statusEl.textContent = 'El modelo todavía no ha cargado. Espera un momento e intenta de nuevo.';
+    statusEl.className = 'status error';
+    document.getElementById('practiceGridControls').style.display = 'none';
+    return;
+  }
+  statusEl.textContent = 'Detectando…';
+  statusEl.className = 'status';
+  try {
+    practiceDetections = await detectPeopleYolo(imgEl);
+    practiceGridColsVal = parseInt(document.getElementById('practiceGridCols').value) || 4;
+    practiceGridRowsVal = parseInt(document.getElementById('practiceGridRows').value) || 3;
+    document.getElementById('practiceGridControls').style.display = 'block';
+    drawPracticeOverlay();
+    updatePracticeSelectionHint();
+    statusEl.textContent = `${practiceDetections.length} personas detectadas en toda la foto. Ajusta la cuadrícula y toca tus celdas de muestra.`;
+    statusEl.className = 'status ok';
+  } catch (e) {
+    statusEl.textContent = 'Error al detectar: ' + e.message;
+    statusEl.className = 'status error';
+    practiceDetections = [];
+    document.getElementById('practiceGridControls').style.display = 'none';
+  }
+}
+
+function rebuildPracticeGrid() {
+  practiceGridColsVal = parseInt(document.getElementById('practiceGridCols').value) || 4;
+  practiceGridRowsVal = parseInt(document.getElementById('practiceGridRows').value) || 3;
+  practiceSelectedCells = new Set();
+  drawPracticeOverlay();
+  updatePracticeSelectionHint();
+}
+
+function drawPracticeOverlay() {
+  const imgEl = document.getElementById('practicePreview');
+  const canvas = document.getElementById('practiceOverlay');
+  canvas.width = imgEl.clientWidth;
+  canvas.height = imgEl.clientHeight;
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const scaleX = imgEl.clientWidth / practiceImgW;
+  const scaleY = imgEl.clientHeight / practiceImgH;
+
+  ctx.strokeStyle = '#4fd1a5';
+  ctx.lineWidth = 1.5;
+  practiceDetections.forEach(p => {
+    const [x, y, w, h] = p.bbox;
+    ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+  });
+
+  const cellW = canvas.width / practiceGridColsVal;
+  const cellH = canvas.height / practiceGridRowsVal;
+  for (let r = 0; r < practiceGridRowsVal; r++) {
+    for (let c = 0; c < practiceGridColsVal; c++) {
+      const key = r + ',' + c;
+      const x = c * cellW, y = r * cellH;
+      if (practiceSelectedCells.has(key)) {
+        ctx.fillStyle = 'rgba(79,209,165,0.28)';
+        ctx.fillRect(x, y, cellW, cellH);
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, cellW, cellH);
+    }
+  }
+}
+
+function handlePracticeCanvasTap(evt) {
+  const canvas = document.getElementById('practiceOverlay');
+  if (canvas.style.display === 'none' || practiceImgW === 0) return;
+  const rect = canvas.getBoundingClientRect();
+  const point = evt.touches && evt.touches[0] ? evt.touches[0] : evt;
+  const clickX = point.clientX - rect.left;
+  const clickY = point.clientY - rect.top;
+  const cellW = canvas.width / practiceGridColsVal;
+  const cellH = canvas.height / practiceGridRowsVal;
+  const col = Math.min(practiceGridColsVal - 1, Math.max(0, Math.floor(clickX / cellW)));
+  const row = Math.min(practiceGridRowsVal - 1, Math.max(0, Math.floor(clickY / cellH)));
+  const key = row + ',' + col;
+  if (practiceSelectedCells.has(key)) practiceSelectedCells.delete(key); else practiceSelectedCells.add(key);
+  drawPracticeOverlay();
+  updatePracticeSelectionHint();
+}
+
+function practiceRawCellCount(row, col) {
+  const cellWNat = practiceImgW / practiceGridColsVal;
+  const cellHNat = practiceImgH / practiceGridRowsVal;
+  const x1 = col * cellWNat, x2 = x1 + cellWNat;
+  const y1 = row * cellHNat, y2 = y1 + cellHNat;
+  let count = 0;
+  practiceDetections.forEach(p => {
+    const [bx, by, bw, bh] = p.bbox;
+    const cx = bx + bw / 2, cy = by + bh / 2;
+    if (cx >= x1 && cx < x2 && cy >= y1 && cy < y2) count++;
+  });
+  return count;
+}
+
+function updatePracticeSelectionHint() {
+  const hintEl = document.getElementById('practiceSelectionHint');
+  const n = practiceSelectedCells.size;
+  hintEl.textContent = n > 0 ? `${n} celda(s) seleccionada(s) — conteo: ${[...practiceSelectedCells].map(k => { const [r,c]=k.split(',').map(Number); return practiceRawCellCount(r,c); }).join(', ')}` : '';
+  document.getElementById('practiceAddBtn').style.display = n > 0 ? 'block' : 'none';
+}
+
+function addPracticeSamples() {
+  practiceSelectedCells.forEach(key => {
+    const [r, c] = key.split(',').map(Number);
+    practiceSamples.push(practiceRawCellCount(r, c));
+  });
+  practiceSelectedCells = new Set();
+  renderPracticeSamples();
+  drawPracticeOverlay();
+  updatePracticeSelectionHint();
+}
+
+function renderPracticeSamples() {
+  const el = document.getElementById('practiceSamplesList');
+  el.innerHTML = practiceSamples.map((c,i) => `<span class="sample-chip">Muestra ${i+1}: <input type="number" min="0" value="${c}" onchange="editPracticeSample(${i}, this.value)"><button onclick="removePracticeSample(${i})">×</button></span>`).join('');
+  document.getElementById('practiceCalcBtn').style.display = practiceSamples.length > 0 ? 'block' : 'none';
+}
+function editPracticeSample(i, value) {
+  const val = parseInt(value, 10);
+  practiceSamples[i] = isNaN(val) || val < 0 ? 0 : val;
+}
+function removePracticeSample(i) {
+  practiceSamples.splice(i, 1);
+  renderPracticeSamples();
+}
+
+function calcPracticeTotal() {
+  const sw = parseFloat(document.getElementById('pMuestraAncho').value);
+  const sf = parseFloat(document.getElementById('pMuestraFondo').value);
+  const zw = parseFloat(document.getElementById('pZonaAncho').value);
+  const zf = parseFloat(document.getElementById('pZonaFondo').value);
+  const box = document.getElementById('practiceResultBox');
+  if (!sw || !sf || !zw || !zf) {
+    box.style.display = 'block';
+    box.innerHTML = 'Primero completa el tamaño de la muestra y de la zona de ejemplo, arriba.';
+    return;
+  }
+  const unidades = (zw * zf) / (sw * sf);
+  const k = practiceSamples.length;
+  const mean = practiceSamples.reduce((a,b) => a+b, 0) / k;
+  const total = Math.round(mean * unidades);
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div>Muestras: ${practiceSamples.join(', ')} (media = ${mean.toFixed(2)})</div>
+    <div style="margin-top:6px">Unidades en la zona de ejemplo: ${unidades.toFixed(1)}</div>
+    <div style="margin-top:8px">Total estimado para esta zona de práctica:</div>
+    <div class="count-big" style="text-align:left">${total.toLocaleString('es-CO')}</div>
+  `;
+}
 </script>
 </body>
 </html>

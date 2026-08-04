@@ -1,8 +1,7 @@
-const CACHE_NAME = 'aforo-yolo-v3';
+const CACHE_NAME = 'aforo-yolo-v1';
 const APP_ASSETS = [
   './',
   './app_aforo_yolo.html',
-  './probar_modelo.html',
   './manifest.webmanifest',
   './yolov8n_best_web_model/model.json',
   './yolov8n_best_web_model/group1-shard1of3.bin',

@@ -59,8 +59,9 @@
   .count-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
   .count-big { font-size: 48px; font-weight: 700; color: var(--accent); font-family: monospace; min-width: 80px; text-align: center; }
   .round-btn { width: 54px; height: 54px; border-radius: 50%; font-size: 22px; margin: 0; }
-  .sample-chip { display: inline-block; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 4px 10px; font-size: 12px; margin: 3px 4px 0 0; }
-  .sample-chip button { background: none; border: none; color: var(--danger); font-size: 12px; padding: 0 0 0 6px; margin: 0; cursor: pointer; }
+  .sample-chip { display: inline-flex; align-items:center; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 4px 6px 4px 10px; font-size: 12px; margin: 3px 4px 0 0; }
+  .sample-chip input { width: 42px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--accent); font-weight: 600; text-align:center; margin: 0 4px; padding: 2px 0; }
+  .sample-chip button { background: none; border: none; color: var(--danger); font-size: 14px; padding: 0 2px; margin: 0; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -173,7 +174,7 @@
         <label style="margin:0; flex:none">Filas</label>
         <input type="number" id="gridRows" value="3" min="1" max="12" style="width:60px" oninput="rebuildGrid()">
       </div>
-      <div class="hint">Toca las celdas de la foto que quieras usar como muestra (quedan resaltadas). Evita celdas cortadas en el borde.</div>
+      <div class="hint">Toca las celdas de la foto que quieras usar como muestra (quedan resaltadas). Evita celdas cortadas en el borde, y prefiere celdas de la misma fila (misma distancia a la cámara) — mezclar celdas muy cercanas con muy lejanas distorsiona el tamaño real que representa cada una.</div>
       <div class="hint" id="gridSelectionHint"></div>
     </div>
 
@@ -204,7 +205,7 @@
   <div class="card">
     <h2>Registro completo</h2>
     <table id="logTable">
-      <thead><tr><th>Hora</th><th>Zona</th><th>Muestras</th><th>λ̂ (media)</th><th>Total (IC 95%)</th><th>Corrección</th></tr></thead>
+      <thead><tr><th>Hora</th><th>Zona</th><th>Muestras</th><th>λ̂ (media)</th><th>Total (IC 95%)</th><th>Corrección</th><th></th></tr></thead>
       <tbody id="logBody"></tbody>
     </table>
     <div class="empty" id="logEmpty">Sin registros todavía.</div>
@@ -453,6 +454,11 @@ function deleteZone(id) {
   saveZones();
   renderZones();
   renderZoneSelect();
+}
+function deleteRound(id) {
+  rounds = rounds.filter(r => r.id !== id);
+  saveRounds();
+  renderHistorial();
 }
 function renderZones() {
   const el = document.getElementById('zoneList');
@@ -728,7 +734,7 @@ function clamp(value, min, max) {
 
 function renderSamples() {
   const el = document.getElementById('samplesList');
-  el.innerHTML = currentSamples.map((c,i) => `<span class="sample-chip">Muestra ${i+1}: ${c}<button onclick="removeSample(${i})">×</button></span>`).join('');
+  el.innerHTML = currentSamples.map((c,i) => `<span class="sample-chip">Muestra ${i+1}: <input type="number" min="0" value="${c}" onchange="editSample(${i}, this.value)"><button onclick="removeSample(${i})">×</button></span>`).join('');
   document.getElementById('saveRoundBtn').style.display = currentSamples.length > 0 ? 'block' : 'none';
 
   const counterEl = document.getElementById('sampleCounter');
@@ -748,6 +754,11 @@ function renderSamples() {
 }
 function removeSample(i) {
   currentSamples.splice(i,1);
+  renderSamples();
+}
+function editSample(i, value) {
+  const val = parseInt(value, 10);
+  currentSamples[i] = isNaN(val) || val < 0 ? 0 : val;
   renderSamples();
 }
 function resetSamples() {
@@ -953,6 +964,7 @@ function renderHistorial() {
       <td>${r.mean}</td>
       <td>${r.total.toLocaleString('es-CO')} (${r.totalLower.toLocaleString('es-CO')}–${r.totalUpper.toLocaleString('es-CO')})</td>
       <td>${(r.correctionMin || r.correctionMax) ? `${r.correctionMin>0?'+':''}${r.correctionMin}% a ${r.correctionMax>0?'+':''}${r.correctionMax}%` : '—'}</td>
+      <td><button class="secondary small" onclick="deleteRound('${r.id}')">×</button></td>
     </tr>
   `).join('');
 }
