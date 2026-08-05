@@ -733,8 +733,10 @@ function renderCalculos() {
     currentEl.innerHTML = '<div class="empty">Sin rondas para este filtro.</div>';
   } else {
     const sumTotal = latest.reduce((a,r)=>a+r.total,0);
-    const sumLower = latest.reduce((a,r)=>a+r.totalLower,0);
-    const sumUpper = latest.reduce((a,r)=>a+r.totalUpper,0);
+    const lowerMarginSq = latest.reduce((a,r)=> a + Math.pow(r.total - r.totalLower, 2), 0);
+    const upperMarginSq = latest.reduce((a,r)=> a + Math.pow(r.totalUpper - r.total, 2), 0);
+    const sumLower = Math.max(0, Math.round(sumTotal - Math.sqrt(lowerMarginSq)));
+    const sumUpper = Math.round(sumTotal + Math.sqrt(upperMarginSq));
     currentEl.innerHTML = latest.map(r => `
       <div class="totalline"><span>${escapeHtml(r.zoneName)}</span><span>${r.total.toLocaleString('es-CO')} (${r.totalLower.toLocaleString('es-CO')}–${r.totalUpper.toLocaleString('es-CO')})</span></div>
     `).join('') + `<div class="totalline"><span>Total filtrado</span><span>${sumTotal.toLocaleString('es-CO')} (${sumLower.toLocaleString('es-CO')}–${sumUpper.toLocaleString('es-CO')})</span></div>`;
